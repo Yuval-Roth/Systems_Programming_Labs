@@ -6,9 +6,8 @@ int main(int argc, char **argv) {
         printf("%s",argv[i]);
         if(i<argc-1){
             printf(" ");
-        } else {
-            printf("\n");
         }
     }
+    printf("\n");
     return 0;
 }
