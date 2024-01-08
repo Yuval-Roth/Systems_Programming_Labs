@@ -10,11 +10,24 @@ struct IntList{
     struct ListNode *last;
     int size;
 };
-void addLast(struct IntList *list, int data){
-    // new node
+
+struct IntList newIntList(){
+    struct IntList list;
+    list.first = 0;
+    list.last = 0;
+    list.size = 0;
+    return list;
+}
+
+struct ListNode *newListNode(int data) {
     struct ListNode *newNode = (struct ListNode*) malloc(sizeof(struct ListNode));
     newNode->data = data;
     newNode->next = 0;
+    return newNode;
+}
+void addLast(struct IntList *list, int data){
+    // new node
+    struct ListNode *newNode = newListNode(data);
 
     if(list->last != 0){
         list->last->next = newNode;
@@ -43,14 +56,7 @@ int pop(struct IntList *list){
     return output;
 }
 void destroyList(struct IntList *list){
-    while(list->first != 0){
+    while(list->size != 0){
         pop(list);
     }
-}
-struct IntList newIntList(){
-    struct IntList list;
-    list.first = 0;
-    list.last = 0;
-    list.size = 0;
-    return list;
 }
