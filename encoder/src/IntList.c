@@ -5,17 +5,17 @@ struct ListNode {
     int data;
     struct ListNode *next;
 };
-struct IntList{
+struct IntList {
     struct ListNode *first;
     struct ListNode *last;
     int size;
 };
 
-struct IntList newIntList(){
-    struct IntList list;
-    list.first = 0;
-    list.last = 0;
-    list.size = 0;
+struct IntList *newIntList(){
+    struct IntList *list = (struct IntList*) malloc(sizeof(struct IntList));
+    list->first = 0;
+    list->last = 0;
+    list->size = 0;
     return list;
 }
 
@@ -59,4 +59,5 @@ void destroyList(struct IntList *list){
     while(list->size != 0){
         pop(list);
     }
+    free(list);
 }
