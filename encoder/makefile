@@ -1,5 +1,7 @@
 TARGET = bin/encoder
 
+all : clean $(TARGET)
+
 $(TARGET) : bin/main.o
 	gcc -g -Wall -m32 -o $(TARGET) bin/main.o
 
