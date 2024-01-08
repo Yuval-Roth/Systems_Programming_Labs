@@ -46,6 +46,7 @@ void encoderLoop(){
             temp = fgetc(infile);
             if(temp == 'E'){
                 while((inputC = fgetc(infile)) != '\n'){
+                    inputC = inputC -48;
                     addLast(&list,inputC);
                 }
                 free(encryptionKey);
