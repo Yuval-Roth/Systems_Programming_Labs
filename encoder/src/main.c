@@ -17,7 +17,7 @@ void printDebug(char *format, char *str) {
 }
 
 void readEncryptionKey(char *key) {
-    keySize = strlen(key) - 2 ;
+    keySize =  (int) strlen(key) - 2 ;
     encryptionKey = (int *) malloc(keySize * 4);
     for(int i = 0; i < keySize; i++){
         encryptionKey[i] = key[i + 2] - ('1' - 1);
@@ -59,19 +59,14 @@ int moduloWithBounds(int lowerBound, int upperBound, int num) {
 }
 
 void encoderLoop(){
-    int encryptionIndex = 0,inputC,temp,i;
+    int encryptionIndex = 0,inputC,temp;
     char outputC;
     while((inputC = fgetc(infile)) != EOF){
-        if(inputC == '\n'){
-            printf("\n");
-            continue;
-        }
-
         temp =  (inputC + additionSign * encryptionKey[encryptionIndex]);
         if(inputC >= 'A' && inputC <= 'Z'){
             outputC = (char) moduloWithBounds('A', 'Z', temp);
         } else if(inputC >= '1' && inputC <= '9'){
-            outputC = (char) moduloWithBounds('1', '9', temp);
+            outputC = (char) moduloWithBounds('0', '9', temp);
         } else {
             outputC = (char) inputC;
         }
