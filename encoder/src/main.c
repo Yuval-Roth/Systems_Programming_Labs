@@ -27,14 +27,7 @@ void readEncryptionKey(char *key) {
 void readArgs(int argc, char **argv) {
     for(int i = 1; i < argc; i++){
 
-        if(strcmp(argv[i], "+D") == 0) {
-            debugMode = true;
-            continue;
-        }
-        if(strcmp(argv[i], "-D") == 0) {
-            debugMode = false;
-            continue;
-        }
+        printDebug("%s\n",argv[i]);
 
         if(argv[i][0] == '+' && argv[i][1] == 'E'){
             additionSign = 1;
@@ -44,7 +37,12 @@ void readArgs(int argc, char **argv) {
             readEncryptionKey(argv[i]);
         }
 
-        printDebug("%s\n",argv[i]);
+        if(strcmp(argv[i], "+D") == 0) {
+            debugMode = true;
+        }
+        if(strcmp(argv[i], "-D") == 0) {
+            debugMode = false;
+        }
     }
 }
 
