@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
-
-#include "IntList.c"
+#include <malloc.h>
 
 bool debugMode = true;
 FILE *infile;
 FILE *outfile;
+int *encryptionKey;
+int keySize;
+int additionSign;
 
 void printDebug(char *format, char *str) {
     if(debugMode) {
@@ -14,8 +16,17 @@ void printDebug(char *format, char *str) {
     }
 }
 
+void readEncryptionKey(char *key) {
+    keySize = strlen(key) - 2 ;
+    encryptionKey = (int *) malloc(keySize * 4);
+    for(int i = 0; i < keySize; i++){
+        encryptionKey[i] = key[i + 2] - ('1' - 1);
+    }
+}
+
 void readArgs(int argc, char **argv) {
     for(int i = 1; i < argc; i++){
+
         if(strcmp(argv[i], "+D") == 0) {
             debugMode = true;
             continue;
@@ -24,6 +35,15 @@ void readArgs(int argc, char **argv) {
             debugMode = false;
             continue;
         }
+
+        if(argv[i][0] == '+' && argv[i][1] == 'E'){
+            additionSign = 1;
+            readEncryptionKey(argv[i]);
+        } else if(argv[i][0] == '-' && argv[i][1] == 'E') {
+            additionSign = -1;
+            readEncryptionKey(argv[i]);
+        }
+
         printDebug("%s\n",argv[i]);
     }
 }
@@ -39,45 +59,14 @@ int moduloWithBounds(int lowerBound, int upperBound, int num) {
 }
 
 void encoderLoop(){
-    int encryptionIndex = 0,inputC,temp,additionSign,i;
-    size_t keySize = 1;
+    int encryptionIndex = 0,inputC,temp,i;
     char outputC;
-    int *encryptionKey = (int *)malloc(4);
-    encryptionKey[0] = 0;
-    struct IntList *list = newIntList();
-
     while((inputC = fgetc(infile)) != EOF){
         if(inputC == '\n'){
             printf("\n");
-//            encryptionIndex = 0;
             continue;
         }
 
-        if(inputC == '+' || inputC == '-'){
-            if(inputC == '+'){
-                additionSign = 1;
-            } else {
-                additionSign = -1;
-            }
-            temp = fgetc(infile);
-            if(temp == 'E'){
-                while((inputC = fgetc(infile)) != '\n'){
-                    inputC = inputC - ('1' - 1);
-                    addLast(list,inputC);
-                }
-                free(encryptionKey);
-                keySize = list->size;
-                encryptionKey = (int *)malloc(list->size*4);
-                i = 0 ;
-                while (list->size > 0){
-                    encryptionKey[i] = pop(list);
-                    i++;
-                }
-                continue;
-            } else {
-                ungetc(temp,infile);
-            }
-        }
         temp =  (inputC + additionSign * encryptionKey[encryptionIndex]);
         if(inputC >= 'A' && inputC <= 'Z'){
             outputC = (char) moduloWithBounds('A', 'Z', temp);
@@ -90,16 +79,15 @@ void encoderLoop(){
         encryptionIndex = (int) ((encryptionIndex + 1) % keySize);
     }
     free(encryptionKey);
-    destroyList(list);
 }
 
 
 int main(int argc, char **argv) {
 
-    readArgs(argc, argv);
     infile = stdin;
     outfile = stdout;
 
+    readArgs(argc, argv);
     encoderLoop();
 
     printf("\n");
