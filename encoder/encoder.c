@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
-#include <malloc.h>
+#include <stdlib.h>
 
 bool debugMode;
 FILE *infile;
@@ -17,7 +17,7 @@ void printDebug(char *format, char *str) {
 
 char* substring(const char* str,size_t startIndex,size_t endIndex){
     int j = 0;
-    char* substr = (char*) malloc((endIndex-startIndex+2)*sizeof(char));
+    char* substr = malloc((endIndex-startIndex+2)*sizeof(char));
     for(size_t i = startIndex; i <= endIndex ;i++,j++){
         substr[j] = str[i];
     }
@@ -34,10 +34,13 @@ size_t stringLength(const char* str){
 }
 
 void readEncryptionKey(char *argv) {
+    if (encryptionKey != 0){
+        free(encryptionKey);
+    }
     size_t argLength = stringLength(argv);
     char* cleanKey = substring(argv, 2, argLength-1);
     keySize = argLength - 2 ;
-    encryptionKey = (int *) malloc(keySize * sizeof(int));
+    encryptionKey = malloc(keySize * sizeof(int));
     for(int i = 0; i < keySize; i++){
         encryptionKey[i] = cleanKey[i] - ('1' - 1);
     }
@@ -127,6 +130,10 @@ int main(int argc, char **argv) {
     infile = stdin;
     outfile = stdout;
     debugMode = true;
+    encryptionKey = 0;
+
+    // default encryption key that doesn't change the output
+    readEncryptionKey("+E0");
 
     readArgs(argc, argv);
     encoderLoop();
