@@ -6,7 +6,6 @@ char my_get(char c) {
 }
 
 /* Ignores c, reads and returns a character from stdin using fgetc. */
-
 char cprt(char c) {
     if(c >= 0x20 && c<= 0x7e){
         printf("%c\n",c);
@@ -59,14 +58,15 @@ struct fun_desc {
 
 int main(int argc, char** argv){
     char input[5], *carray,*temp;
+    int choice;
     carray = calloc(5,sizeof(char));
 
     struct fun_desc funs[] = {
             {"Get String",my_get},
             {"Print String", cprt},
-            {"Print Hex",xprt},
             {"Encrypt",encrypt},
             {"Decrypt",decrypt},
+            {"Print Hex",xprt},
             {NULL, NULL}
     };
 
@@ -76,18 +76,21 @@ int main(int argc, char** argv){
             printf("%d) %s\n",i,funs[i].name);
         }
         printf("Option: ");
-        if(fgets(input,sizeof(input),stdin) == NULL){
+        fgets(input,sizeof(input),stdin);
+        if(feof(stdin)){
             break;
         }
-        if(input[0] >= 0 && input[0] <= 4){
-            printf("Within bounds\n");
+        choice = atoi(input);
+        if(choice >= 0 && choice <= 4){
+            printf("\nWithin bounds\n");
         } else {
-            printf("Not within bounds\n");
+            printf("\nNot within bounds\n");
             break;
         }
         temp = carray;
-        carray = map(carray,5,funs[input[0]].fun);
+        carray = map(carray,5,funs[choice].fun);
         free(temp);
+        printf("DONE.\n\n");
     }
     free(carray);
     return 0;
