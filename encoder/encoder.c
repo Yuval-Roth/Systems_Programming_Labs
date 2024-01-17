@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <errno.h>
 
 bool debugMode;
 FILE *infile;
@@ -73,14 +74,22 @@ void readArgs(int argc, char **argv) {
         if(argMatch(argv[i],"-I")){
             size_t argLength = stringLength(argv[i]);
             char* fileName = substring(argv[i],2,argLength-1);
-            infile = fopen(fileName,"r");
+            if((infile = fopen(fileName,"r")) == NULL){
+                printf("opening input file failed with error code %d. defaulting to stdin\n",errno);
+                infile = stdin;
+                continue;
+            }
             free(fileName);
             continue;
         }
         if(argMatch(argv[i],"-O")){
             size_t argLength = stringLength(argv[i]);
             char* fileName = substring(argv[i],2,argLength-1);
-            outfile = fopen(fileName,"w");
+            if((outfile = fopen(fileName,"w")) == NULL){
+                printf("opening output file failed with error code %d. defaulting to stdout\n",errno);
+                outfile = stdout;
+                continue;
+            }
             free(fileName);
             continue;
         }
