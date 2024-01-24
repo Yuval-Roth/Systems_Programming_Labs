@@ -1,4 +1,4 @@
-all: clean myshell looper
+all: clean myshell #looper
 
 CC = gcc
 CFLAGS = -Wall -g -m32

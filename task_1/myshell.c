@@ -5,14 +5,49 @@
 #include <limits.h> // Include for PATH_MAX
 #include "LineParser.h"
 #include <sched.h>
+#include <sys/wait.h>
+
+
+int debugMode = 0;
 
 void execute(cmdLine *pCmdLine) {
-    printf("Executing command: %s\n", pCmdLine->arguments[0]);
-    execvp(pCmdLine->arguments[0], pCmdLine->arguments);
-    exit(1);
+    int child_pid = fork();
+    if(child_pid == -1){
+        perror("fork");
+        exit(1);
+    }
+    
+    if(child_pid == 0){
+        if(debugMode){
+            char pString[256] = pCmdLine->arguments;
+            printf("executing command: %s\n",pString);
+        }
+        execvp(pCmdLine->arguments[0],pCmdLine->arguments);
+        _exit(1);
+    } else {
+        if(debugMode){
+            printf("new child pid: %d\n",child_pid);
+        }
+        int status;
+        if(pCmdLine->blocking){
+            waitpid(child_pid,&status,0);
+        }
+    }
+
 }
 
-int main() {
+void readArgs(int argc, char **argv) {
+    for(int i = 1; i < argc; i++){
+        if(strcmp(argv[i],"-d") == 0) {
+            debugMode = 1;
+        }
+    }
+}
+
+int main(int argc, char** argv) {
+
+    readArgs(argc,argv);
+
     char userInput[2048];
     cmdLine *parsedCmdLine;
 
