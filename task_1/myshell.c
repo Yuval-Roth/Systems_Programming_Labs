@@ -7,29 +7,47 @@
 #include <sched.h>
 #include <sys/wait.h>
 
-
 int debugMode = 0;
 
-void execute(cmdLine *pCmdLine) {
+void printArray(char const *array[], int size){
+    for(int i = 0; i < size; i++){
+        printf("%s ",array[i]);
+    }
+    printf("\n");
+
+}
+
+void execute(cmdLine *line) {
     int child_pid = fork();
     if(child_pid == -1){
         perror("fork");
         exit(1);
     }
-    
+
     if(child_pid == 0){
-        if(debugMode){
-            char pString[256] = pCmdLine->arguments;
-            printf("executing command: %s\n",pString);
+
+        if (line->inputRedirect != NULL) {
+            if(freopen(line->inputRedirect, "r", stdin) == NULL){
+                perror("freopen");
+            }
         }
-        execvp(pCmdLine->arguments[0],pCmdLine->arguments);
+
+        if (line->outputRedirect != NULL) {
+            if(freopen(line->outputRedirect, "w", stdout) == NULL){
+                perror("freopen");
+            }
+        }
+
+        execvp(line->arguments[0], line->arguments);
         _exit(1);
     } else {
         if(debugMode){
+            printf("executing command: ");
+            printArray((const char **) line->arguments, line->argCount);
             printf("new child pid: %d\n",child_pid);
         }
         int status;
-        if(pCmdLine->blocking){
+        if(line->blocking){
             waitpid(child_pid,&status,0);
         }
     }
@@ -41,6 +59,13 @@ void readArgs(int argc, char **argv) {
         if(strcmp(argv[i],"-d") == 0) {
             debugMode = 1;
         }
+    }
+}
+
+void sendSignal(int pid, int signum) {
+    // Send signal to a process
+    if (kill(pid, signum) == -1) {
+        perror("kill");
     }
 }
 
@@ -75,9 +100,28 @@ int main(int argc, char** argv) {
         if (strcmp(userInput, "quit") == 0) {
             break;
         }
-
         // Parse the input using parseCmdLines
         parsedCmdLine = parseCmdLines(userInput);
+
+        if (strcmp(parsedCmdLine->arguments[0], "cd") == 0) {
+            // Change the current working directory
+            if (chdir(parsedCmdLine->arguments[1]) == -1) {
+                perror("chdir");
+            }
+            freeCmdLines(parsedCmdLine);
+            continue; // Skip the execution step for "cd" command
+        }
+
+        if (strcmp(parsedCmdLine->arguments[0], "wakeup") == 0) {
+            sendSignal(atoi(parsedCmdLine->arguments[1]),SIGCONT);
+            continue;
+        }
+
+        if (strcmp(parsedCmdLine->arguments[0], "nuke") == 0) {
+            sendSignal(atoi(parsedCmdLine->arguments[1]),SIGINT);
+            continue;
+        }
+
 
         // Execute the command
         if (parsedCmdLine != NULL) {

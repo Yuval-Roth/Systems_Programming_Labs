@@ -1,4 +1,4 @@
-all: clean myshell #looper
+all: clean myshell looper
 
 CC = gcc
 CFLAGS = -Wall -g -m32
@@ -14,10 +14,10 @@ myshell: myshell.o LineParser.o
 	$(CC) $(CFLAGS) -o myshell myshell.o LineParser.o
 	rm -f *.o
 
-myshell.o: myshell.c LineParser.h
+myshell.o: myshell.c
 	$(CC) $(CFLAGS) -c myshell.c -o myshell.o
 
-LineParser.o: LineParser.c LineParser.h
+LineParser.o: LineParser.c
 	$(CC) $(CFLAGS) -c LineParser.c -o LineParser.o
 
 .PHONEY: clean
