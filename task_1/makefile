@@ -1,4 +1,4 @@
-all: clean myshell looper
+all: clean myshell looper mypipe
 
 CC = gcc
 CFLAGS = -Wall -g -m32
@@ -20,7 +20,14 @@ myshell.o: myshell.c
 LineParser.o: LineParser.c
 	$(CC) $(CFLAGS) -c LineParser.c -o LineParser.o
 
+mypipe : mypipe.o
+	$(CC) $(CFLAGS) -o mypipe mypipe.o
+
+mypipe.o:
+	$(CC) $(CFLAGS) -c mypipe.c -o mypipe.o
+
+
 .PHONEY: clean
 
 clean:
-	rm -f myshell looper *.o
+	rm -f myshell looper mypipe *.o
