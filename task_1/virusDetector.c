@@ -15,15 +15,15 @@ typedef struct virus {
 virus* readVirus(FILE *file){
     unsigned char magicNumber[4];
     virus *v = malloc(sizeof(virus));
-    unsigned short *sizeBuf = 0,tempShort;
-    char *nameBuf = 0 ,tempChar;
-    unsigned char *sigBuf = 0,tempUChar;
+    unsigned short *sizeBuf, tempShort;
+    char *nameBuf, tempChar;
+    unsigned char *sigBuf, tempUChar;
 
     if(fread(magicNumber, sizeof(unsigned char), 4, file) != 4){
         perror("fread");
     }
 
-    sizeBuf = malloc(2*sizeof(unsigned  short));
+    sizeBuf = malloc(sizeof(unsigned  short));
     if (fread(sizeBuf, sizeof(unsigned  short ), 1, file) != 1){
         perror("fread");
     }
