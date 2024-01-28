@@ -2,110 +2,132 @@
 #include <stdio.h>
 #include <string.h>
 
+
 typedef struct virus {
     unsigned short SigSize;
     char virusName[16];
     unsigned char* sig;
 } virus;
 
-// this function receives a file pointer and returns a virus*
-// that represents the next virus in the file.
-// To read from a file, use fread().
-// See man fread(3) for assistance.
+int mode;
+
+void printVirus(virus* virus, FILE* output);
+
+typedef struct link link;
+
+struct link {
+    link *nextVirus;
+    virus *vir;
+};
+
+link* list_append(link* virus_list, virus* data){
+
+    // since we're implementing the list as a stack,
+    // there is no special case for when the list is empty (null)
+    link *newLink = malloc(sizeof(link));
+    newLink->nextVirus = virus_list;
+    newLink->vir = data;
+    return newLink;
+}
+
+void freeVirus(virus *pVirus) {
+    free(pVirus->sig);
+    free(pVirus);
+}
+
+void list_free(link *virus_list){
+    link * curr = virus_list, *next;
+
+    while (curr != 0){
+        next = curr->nextVirus;
+        freeVirus(curr->vir);
+        free(curr);
+        curr = next;
+    }
+}
+
+void list_print(link *curr, FILE* output){
+    while(curr != 0){
+        printVirus(curr->vir,output);
+        fprintf(output,"\n");
+        curr = curr->nextVirus;
+    }
+}
+
 virus* readVirus(FILE *file){
-    unsigned char magicNumber[4];
+    // this function receives a file pointer and returns a virus*
+    // that represents the next virus in the file.
+    // To read from a file, use fread().
+    // See man fread(3) for assistance.
     virus *v = malloc(sizeof(virus));
-    unsigned short *sizeBuf, tempShort;
-    char *nameBuf, tempChar;
-    unsigned char *sigBuf, tempUChar;
+
+    if(fread(v,sizeof(char),18,file) != 18){
+        perror("fread");
+    }
+    if(mode < 0){
+        v->SigSize = (((v->SigSize & 0xFF00) >> 8 ) | ((v->SigSize & 0x00FF) << 8 ));
+    }
+    v->sig = malloc(v->SigSize);
+    if(fread(v->sig,sizeof(unsigned char),v->SigSize,file) != v->SigSize){
+        perror("fread");
+    }
+
+    return v;
+}
+
+void printVirus(virus* virus, FILE* output){
+    // this function receives a virus and a pointer to an output file.
+    // The function prints the virus to the given output.
+    // It prints the virus name (in ASCII),
+    // the virus signature length (in decimal),
+    // and the virus signature (in hexadecimal representation).
+    fprintf(output, "Virus Name: %s\n", virus->virusName);
+    fprintf(output,"Signature Length: %d\n",virus->SigSize);
+    fprintf(output,"Signature: ");
+    for (unsigned short i = 0; i < virus->SigSize; i++){
+        fprintf(output,"%2X ",virus->sig[i]);
+    }
+    fprintf(output, "\n");
+}
+
+int legalMagicNumber(FILE *file) {
+
+    unsigned char magicNumber[4];
 
     if(fread(magicNumber, sizeof(unsigned char), 4, file) != 4){
         perror("fread");
     }
 
-    sizeBuf = malloc(sizeof(unsigned  short));
-    if (fread(sizeBuf, sizeof(unsigned  short ), 1, file) != 1){
-        perror("fread");
+    if(strcmp(magicNumber,"VIRL") == 0){
+        mode = 1;
+        return 1;
+    } else if(strcmp(magicNumber,"VIRB") == 0) {
+        mode = -1;
+        return 1;
+    } else {
+        return 0;
     }
-
-    nameBuf = calloc(16,sizeof(char));
-    if (fread(nameBuf, sizeof(char), 16, file) != 16){
-        perror("fread");
-    }
-
-    sigBuf = malloc((int)sizeBuf*sizeof(unsigned char));
-    if(fread(sigBuf, (int)sizeBuf*sizeof(unsigned char), (int)sizeBuf, file) != v->SigSize){
-        perror("fread");
-    }
-
-    if (strcmp(magicNumber,"VIRB") == 0){
-        //BIG ENDIAN
-
-        //flip sigSize
-        tempShort = sizeBuf[0];
-        sizeBuf[0] = sizeBuf[1];
-        sizeBuf[1] = tempShort;
-
-        //flip nameBuf
-        for (int i = 0; i < 16; ++i) {
-            tempChar = nameBuf[i];
-            nameBuf[i] = nameBuf[15-i];
-            nameBuf[15-i] = tempChar;
-        }
-
-        //flip sigBuf
-        for (int i = 0; i < v->SigSize; ++i) {
-            tempUChar = sigBuf[i];
-            sigBuf[i] = sigBuf[v->SigSize-1-i];
-            sigBuf[v->SigSize-1-i] = tempUChar;
-        }
-    }
-
-    // assign from buffers
-    v->sig = sigBuf;
-    strcpy(v->virusName,nameBuf);
-    v->SigSize = *sizeBuf;
-
-    return v;
-}
-
-
-// this function receives a virus and a pointer to an output file.
-// The function prints the virus to the given output.
-// It prints the virus name (in ASCII),
-// the virus signature length (in decimal),
-// and the virus signature (in hexadecimal representation).
-void printVirus(virus* virus, FILE* output){
-
 }
 
 int main(int argc, char** argv){
 
     // open a binary file
-    FILE* file = fopen("input", "r");
+    FILE* file = fopen("inputVIRB", "r");
 
-    // Test the readVirus function
-    virus* testVirus = readVirus(file);
-    if (testVirus != NULL) {
-        // Print the virus details
-        printf("Signature Size: %u\n", testVirus->SigSize);
-        printf("Virus Name: %s\n", testVirus->virusName);
-        printf("Virus Signature: ");
-        for (unsigned short i = 0; i < testVirus->SigSize; ++i) {
-            printf("%02X ", testVirus->sig[i]);
-        }
-        printf("\n");
-
-        // Free the allocated memory
-        free(testVirus->sig);
-        free(testVirus);
-    } else {
-        printf("Error reading virus from file\n");
+    if(! legalMagicNumber(file)){
+        printf("Illegal magic number");
+        exit(2);
     }
+    virus *v = readVirus(file);
+    FILE *output = fopen("output","w");
+    printVirus(v,output);
 
-    // Close the temporary file
+    freeVirus(v);
+
     fclose(file);
+    fclose(output);
+    return 0;
 
-    return EXIT_SUCCESS;
 
 }
+
