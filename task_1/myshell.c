@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
         }
 
         if (strcmp(parsedCmdLine->arguments[0], "nuke") == 0) {
-            sendSignal(atoi(parsedCmdLine->arguments[1]),SIGINT);
+            sendSignal(atoi(parsedCmdLine->arguments[1]),SIGTERM);
             continue;
         }
 

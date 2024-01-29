@@ -23,7 +23,7 @@ int main(){
 
     if(cpid == 0){
         close(pipefd[0]);
-        if (write(pipefd[1],"hello",5) == -1){
+        if (write(pipefd[1],"hello\n",5) == -1){
             perror("write");
         }
         close(pipefd[1]);
