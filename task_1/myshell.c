@@ -93,6 +93,8 @@ int main(int argc, char** argv) {
             exit(EXIT_FAILURE);
         }
 
+        if(userInput[0] == '\n') continue;
+
         // Remove the newline character from the input
         userInput[strcspn(userInput, "\n")] = '\0';
 
