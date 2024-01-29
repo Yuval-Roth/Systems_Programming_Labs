@@ -29,9 +29,10 @@ int main(){
         close(pipefd[1]);
         exit(1);
     } else {
+        buf = (char*)malloc(5);
         waitpid(cpid,&status,0);
         close(pipefd[1]);
-        if (read(pipefd[0],buf,5) == -1){
+        if(read(pipefd[0],buf,5) == -1){
             perror("read");
         }
         if(write(STDOUT_FILENO,buf,5) == -1){
