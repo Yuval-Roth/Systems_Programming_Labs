@@ -54,7 +54,7 @@ void execute(cmdLine *line) {
         }
     } else{
         if (line->outputRedirect != 0 || line->next->inputRedirect != 0) {
-            perror("piping and redirection are not supported");
+            fprintf(stderr,"piping and redirection are not supported\n");
             return;
         }
 
@@ -186,7 +186,6 @@ int main(int argc, char** argv) {
             sendSignal(atoi(parsedCmdLine->arguments[1]),SIGKILL);
             continue;
         }
-
 
         // Execute the command
         if (parsedCmdLine != NULL) {
