@@ -3,17 +3,16 @@ CC = gcc
 CFLAGS = -Wall -g -m32
 
 all: clean $(TARGETS)
+	rm -f *.o
 
 looper: looper.o
 	$(CC) $(CFLAGS) -o looper looper.o
-	rm -f *.o
 
 looper.o:
 	$(CC) $(CFLAGS) -c looper.c -o looper.o
 
 myshell: myshell.o LineParser.o
 	$(CC) $(CFLAGS) -o myshell myshell.o LineParser.o
-	rm -f *.o
 
 myshell.o: myshell.c
 	$(CC) $(CFLAGS) -c myshell.c -o myshell.o
