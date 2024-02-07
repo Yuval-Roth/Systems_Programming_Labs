@@ -18,40 +18,103 @@ void printArray(char const *array[], int size){
 }
 
 void execute(cmdLine *line) {
-    int child_pid = fork();
-    if(child_pid == -1){
-        perror("fork");
-        exit(1);
-    }
+    if (line->next == 0) {
+        int child_pid = fork();
+        if (child_pid == -1) {
+            perror("fork");
+            exit(1);
+        }
 
-    if(child_pid == 0){
+        if (child_pid == 0) {
 
-        if (line->inputRedirect != NULL) {
-            if(freopen(line->inputRedirect, "r", stdin) == NULL){
-                perror("freopen");
+            if (line->inputRedirect != NULL) {
+                if (freopen(line->inputRedirect, "r", stdin) == NULL) {
+                    perror("freopen");
+                }
+            }
+
+            if (line->outputRedirect != NULL) {
+                if (freopen(line->outputRedirect, "w", stdout) == NULL) {
+                    perror("freopen");
+                }
+            }
+
+            execvp(line->arguments[0], line->arguments);
+            _exit(1);
+        } else {
+            if (debugMode) {
+                printf("executing command: ");
+                printArray((const char **) line->arguments, line->argCount);
+                printf("new child pid: %d\n", child_pid);
+            }
+            int status;
+            if (line->blocking) {
+                waitpid(child_pid, &status, 0);
             }
         }
+    } else{
+        if (line->outputRedirect != 0 || line->next->inputRedirect != 0) {
+            perror("piping and redirection are not supported");
+            return;
+        }
 
-        if (line->outputRedirect != NULL) {
-            if(freopen(line->outputRedirect, "w", stdout) == NULL){
-                perror("freopen");
+        pid_t cpid,cpid2;
+        int pipefd[2];
+
+        //create a pipe
+        pipe(pipefd);
+
+        cpid = fork();
+        if(cpid == -1){
+            perror("fork");
+            _exit(1);
+        }
+        if (cpid == 0){
+
+            // <--- child process 1 --->
+
+            close(STDOUT_FILENO);
+
+            // redirect the stdout to the new pipe
+            dup2(pipefd[1],STDOUT_FILENO);
+
+            // close the write end of the original pipe because we are using the duplicated one
+            close(pipefd[1]);
+
+            // execute the command
+            execvp(line->arguments[0], line->arguments);
+
+        } else {
+
+            // <--- parent process --->
+
+            close(pipefd[1]);
+            cpid2 = fork();
+            if(cpid2 == -1){
+                perror("fork");
+                _exit(1);
+            }
+            if(cpid2 == 0){
+                // <--- child process 2 --->
+                // close the write end of the pipe because we are reading
+                close(STDIN_FILENO);
+
+                // redirect the input to the new pipe
+                dup2(pipefd[0],STDIN_FILENO);
+
+                // close the read end of the original pipe because we are using the duplicated one
+                close(pipefd[0]);
+
+                // execute the command
+                execvp(line->next->arguments[0], line->next->arguments);
+            } else {
+                // <--- parent process --->
+                close(pipefd[0]);
+                waitpid(cpid,0,0);
+                waitpid(cpid2,0,0);
             }
         }
-
-        execvp(line->arguments[0], line->arguments);
-        _exit(1);
-    } else {
-        if(debugMode){
-            printf("executing command: ");
-            printArray((const char **) line->arguments, line->argCount);
-            printf("new child pid: %d\n",child_pid);
-        }
-        int status;
-        if(line->blocking){
-            waitpid(child_pid,&status,0);
-        }
     }
-
 }
 
 void readArgs(int argc, char **argv) {
