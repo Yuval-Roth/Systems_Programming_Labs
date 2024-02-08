@@ -66,7 +66,7 @@ void updateProcessList(process **process_list){
         pid_t result = waitpid(current->pid, &status, WNOHANG);
 
         if (result == -1) {
-            // do nothing
+            updateProcessStatus(current, current->pid, TERMINATED);
         } else if (result > 0) {
             // Process has terminated
 //            if (WIFEXITED(status)) {
@@ -184,7 +184,6 @@ void execute(cmdLine *line) {
 
             execvp(line->arguments[0], line->arguments);
             perror("execvp");
-            updateProcessStatus()
             _exit(1);
         } else {
             if (debugMode) {
@@ -316,7 +315,7 @@ int main(int argc, char** argv) {
         // Parse the input using parseCmdLines
         parsedCmdLine = parseCmdLines(userInput);
 
-        if (strcmp(parsedCmdLine->arguments[0], "cd") == 0) {
+        if (strcmp(parsedCmdLine->arguments[0], "cd") == 0 && parseCmdLines->argCount >= 2) {
             // Change the current working directory
             if (chdir(parsedCmdLine->arguments[1]) == -1) {
                 perror("chdir");
@@ -325,17 +324,17 @@ int main(int argc, char** argv) {
             continue; // Skip the execution step for "cd" command
         }
 
-        if (strcmp(parsedCmdLine->arguments[0], "suspend") == 0) {
+        if (strcmp(parsedCmdLine->arguments[0], "suspend") == 0 && parseCmdLines->argCount >= 2) {
             sendSignal(atoi(parsedCmdLine->arguments[1]),SIGTSTP);
             continue;
         }
 
-        if (strcmp(parsedCmdLine->arguments[0], "wakeup") == 0) {
+        if (strcmp(parsedCmdLine->arguments[0], "wakeup") == 0 && parseCmdLines->argCount >= 2) {
             sendSignal(atoi(parsedCmdLine->arguments[1]),SIGCONT);
             continue;
         }
 
-        if (strcmp(parsedCmdLine->arguments[0], "nuke") == 0) {
+        if (strcmp(parsedCmdLine->arguments[0], "nuke") == 0 && parseCmdLines->argCount >= 2) {
             sendSignal(atoi(parsedCmdLine->arguments[1]),SIGINT);
             continue;
         }
