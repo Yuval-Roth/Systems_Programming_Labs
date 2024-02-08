@@ -25,18 +25,16 @@ int main(int argc, char ** argv){
         // <--- child process 1 --->
         char *argv_cp1[] = {"-ls -l",NULL};
 
-        close(STDOUT_FILENO);
-
-        // redirect the stdout to the new pipe
         printf("(child1>redirecting stdout to the write end of the pipe...)\n");
+        printf("(child1>going to execute cmd: ls -l)\n");
+        // redirect the stdout to the new pipe
+        close(STDOUT_FILENO);
         dup2(pipefd[1],STDOUT_FILENO);
 
         // close the write end of the original pipe because we are using the duplicated one
         close(pipefd[1]);
 
         // execute the command
-        printf("(child1>going to execute cmd: ls -l)\n");
-
         execvp("ls", argv_cp1);
 
     } else {

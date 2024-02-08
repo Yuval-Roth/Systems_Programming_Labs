@@ -2,19 +2,162 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h> // Include for PATH_MAX
+#include <limits.h>
 #include "LineParser.h"
-#include <sched.h>
 #include <sys/wait.h>
 
+#define TERMINATED  (-1)
+#define RUNNING 1
+#define SUSPENDED 0
+
+char* statusToString(int status){
+    switch(status){
+        case TERMINATED:
+            return "TERMINATED";
+        case RUNNING:
+            return "RUNNING";
+        case SUSPENDED:
+            return "SUSPENDED";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+typedef struct process{
+    cmdLine* cmd;                         /* the parsed command line*/
+    pid_t pid; 		                  /* the process id that is running the command*/
+    int status;                           /* status of the process: RUNNING/SUSPENDED/TERMINATED */
+    struct process *next;	                  /* next process in chain */
+}process;
+
 int debugMode = 0;
+process *processes = NULL;
+
+void addProcess(process **process_list, cmdLine* cmd, pid_t pid){
+    process * newProcess = malloc(sizeof(process));
+    newProcess->cmd = cmd;
+    newProcess->pid = pid;
+    newProcess->status = RUNNING;
+    newProcess->next = NULL;
+
+    if(*process_list == NULL){
+        *process_list = newProcess;
+        return;
+    }
+
+    process *curr = *process_list;
+    // add to end;
+    while(curr->next != NULL){
+        curr = curr->next;
+    }
+    curr->next = newProcess;
+}
+
+void updateProcessStatus(process* curr, int pid, int status){
+    curr->status = status;
+}
+
+void updateProcessList(process **process_list){
+    process* current = *process_list;
+    int status;
+
+    while (current != NULL) {
+
+        pid_t result = waitpid(current->pid, &status, WNOHANG);
+
+        if (result == -1) {
+            // do nothing
+        } else if (result > 0) {
+            // Process has terminated
+//            if (WIFEXITED(status)) {
+//                updateProcessStatus(current, current->pid, TERMINATED);
+//            } else if (WIFSIGNALED(status)) {
+//                updateProcessStatus(current, current->pid, TERMINATED);
+//            } else if (WIFSTOPPED(status)) {
+//                updateProcessStatus(current, current->pid, SUSPENDED);
+//            } else if (WIFCONTINUED(status)) {
+//                updateProcessStatus(current, current->pid, RUNNING);
+//            }
+
+            if (WIFEXITED(status)) {
+                updateProcessStatus(current, current->pid, TERMINATED);
+            } else if (WIFSIGNALED(status)) {
+                updateProcessStatus(current, current->pid, TERMINATED);
+            } else if (WIFSTOPPED(status)) {
+                // Process is stopped by a signal
+                updateProcessStatus(current, current->pid, SUSPENDED);
+                fprintf(stderr, "Recieved Signal: Stopped\n");
+            } else if (WIFCONTINUED(status)) {
+                updateProcessStatus(current, current->pid, RUNNING);
+            }
+        }
+        current = current->next;
+    }
+}
+
+
+void removeAllDeadProcesses(process** process_list) {
+    process* current = *process_list;
+    process* previous = NULL;
+
+    while (current != NULL) {
+        // Check if the process has terminated
+        if (current->status == TERMINATED) {
+            // Update the pointers to remove the process from the list
+            if (previous == NULL) {
+                // The process to be removed is the first in the list
+                *process_list = current->next;
+                freeCmdLines(current->cmd);
+                free(current);
+                current = *process_list;
+            } else {
+                // The process to be removed is not the first in the list
+                previous->next = current->next;
+                freeCmdLines(current->cmd);
+                free(current);
+                current = previous->next;
+            }
+        } else {
+            // Move to the next process in the list
+            previous = current;
+            current = current->next;
+        }
+    }
+}
+
 
 void printArray(char const *array[], int size){
     for(int i = 0; i < size; i++){
         printf("%s ",array[i]);
     }
     printf("\n");
+}
 
+void printProcessList(process **process_list){
+    updateProcessList(process_list);
+
+    int index = 0;
+    process* curr = *process_list;
+    //print header
+    printf("Index | PID | Status | Command\n");
+    while(curr != NULL){
+        printf("%d | %d | %s | ",index++,curr->pid, statusToString(curr->status));
+        printArray((const char **)curr->cmd->arguments,curr->cmd->argCount);
+        curr = curr->next;
+    }
+
+    removeAllDeadProcesses(process_list);
+}
+
+void freeProcessList(process* process_list){
+    process *curr = process_list;
+    process *next;
+    while(curr != 0){
+        freeCmdLines(curr->cmd);
+        next = curr->next;
+        free(curr);
+        curr = next;
+    }
 }
 
 void execute(cmdLine *line) {
@@ -40,6 +183,8 @@ void execute(cmdLine *line) {
             }
 
             execvp(line->arguments[0], line->arguments);
+            perror("execvp");
+            updateProcessStatus()
             _exit(1);
         } else {
             if (debugMode) {
@@ -47,6 +192,7 @@ void execute(cmdLine *line) {
                 printArray((const char **) line->arguments, line->argCount);
                 printf("new child pid: %d\n", child_pid);
             }
+            addProcess(&processes,line,child_pid);
             int status;
             if (line->blocking) {
                 waitpid(child_pid, &status, 0);
@@ -85,8 +231,8 @@ void execute(cmdLine *line) {
             execvp(line->arguments[0], line->arguments);
 
         } else {
-
             // <--- parent process --->
+            addProcess(&processes,line,cpid);
 
             close(pipefd[1]);
             cpid2 = fork();
@@ -109,6 +255,8 @@ void execute(cmdLine *line) {
                 execvp(line->next->arguments[0], line->next->arguments);
             } else {
                 // <--- parent process --->
+
+                addProcess(&processes,line->next,cpid2);
                 close(pipefd[0]);
                 waitpid(cpid,0,0);
                 waitpid(cpid2,0,0);
@@ -177,13 +325,23 @@ int main(int argc, char** argv) {
             continue; // Skip the execution step for "cd" command
         }
 
+        if (strcmp(parsedCmdLine->arguments[0], "suspend") == 0) {
+            sendSignal(atoi(parsedCmdLine->arguments[1]),SIGTSTP);
+            continue;
+        }
+
         if (strcmp(parsedCmdLine->arguments[0], "wakeup") == 0) {
             sendSignal(atoi(parsedCmdLine->arguments[1]),SIGCONT);
             continue;
         }
 
         if (strcmp(parsedCmdLine->arguments[0], "nuke") == 0) {
-            sendSignal(atoi(parsedCmdLine->arguments[1]),SIGKILL);
+            sendSignal(atoi(parsedCmdLine->arguments[1]),SIGINT);
+            continue;
+        }
+
+        if (strcmp(parsedCmdLine->arguments[0], "procs") == 0) {
+            printProcessList(&processes);
             continue;
         }
 
@@ -192,9 +350,10 @@ int main(int argc, char** argv) {
             execute(parsedCmdLine);
 
             // Free the resources allocated by parseCmdLines
-            freeCmdLines(parsedCmdLine);
+            //freeCmdLines(parsedCmdLine);
         }
     }
+    freeProcessList(processes);
 
     return EXIT_SUCCESS;
 }
