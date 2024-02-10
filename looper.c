@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/syscall.h>
 #include <signal.h>
 #include <string.h>
 
@@ -32,7 +31,8 @@ int main(int argc, char **argv)
 
     while (1)
     {
-        sleep(1);
+        sleep(10);
+        printf("looper is running\n");
     }
 
     return 0;

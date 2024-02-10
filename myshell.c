@@ -5,6 +5,7 @@
 #include <limits.h>
 #include "LineParser.h"
 #include <sys/wait.h>
+#include <errno.h>
 
 #define TERMINATED  (-1)
 #define RUNNING 1
@@ -63,27 +64,21 @@ void updateProcessList(process **process_list){
 
     while (current != NULL) {
 
-        pid_t result = waitpid(current->pid, &status, WNOHANG);
+        pid_t result = waitpid(current->pid, &status, WNOHANG | WUNTRACED | WCONTINUED);
 
         if (result == -1) {
-            updateProcessStatus(current, current->pid, TERMINATED);
+            if(errno == ECHILD){
+                // No child processes
+                updateProcessStatus(current, current->pid, TERMINATED);
+            } else {
+                perror("waitpid");
+            }
         } else if (result > 0) {
-            // Process has terminated
-//            if (WIFEXITED(status)) {
-//                updateProcessStatus(current, current->pid, TERMINATED);
-//            } else if (WIFSIGNALED(status)) {
-//                updateProcessStatus(current, current->pid, TERMINATED);
-//            } else if (WIFSTOPPED(status)) {
-//                updateProcessStatus(current, current->pid, SUSPENDED);
-//            } else if (WIFCONTINUED(status)) {
-//                updateProcessStatus(current, current->pid, RUNNING);
-//            }
-
             if (WIFEXITED(status)) {
                 updateProcessStatus(current, current->pid, TERMINATED);
-            } else if (WIFSIGNALED(status)) {
+            }/* else if (WIFSIGNALED(status)) {
                 updateProcessStatus(current, current->pid, TERMINATED);
-            } else if (WIFSTOPPED(status)) {
+            }*/ else if (WIFSTOPPED(status)) {
                 // Process is stopped by a signal
                 updateProcessStatus(current, current->pid, SUSPENDED);
                 fprintf(stderr, "Recieved Signal: Stopped\n");
