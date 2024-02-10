@@ -31,8 +31,7 @@ int main(int argc, char **argv)
 
     while (1)
     {
-        sleep(10);
-        printf("looper is running\n");
+        sleep(1);
     }
 
     return 0;

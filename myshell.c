@@ -6,6 +6,7 @@
 #include "LineParser.h"
 #include <sys/wait.h>
 #include <errno.h>
+#include <syscall.h>
 
 #define TERMINATED  (-1)
 #define RUNNING 1
@@ -64,24 +65,19 @@ void updateProcessList(process **process_list){
 
     while (current != NULL) {
 
-        pid_t result = waitpid(current->pid, &status, WNOHANG | WUNTRACED | WCONTINUED);
+        pid_t result = waitpid(current->pid, &status, WNOHANG | WSTOPPED | WCONTINUED);
 
         if (result == -1) {
             if(errno == ECHILD){
-                // No child processes
                 updateProcessStatus(current, current->pid, TERMINATED);
             } else {
                 perror("waitpid");
             }
         } else if (result > 0) {
-            if (WIFEXITED(status)) {
+            if (WIFEXITED(status) || WIFSIGNALED(status)) {
                 updateProcessStatus(current, current->pid, TERMINATED);
-            }/* else if (WIFSIGNALED(status)) {
-                updateProcessStatus(current, current->pid, TERMINATED);
-            }*/ else if (WIFSTOPPED(status)) {
-                // Process is stopped by a signal
+            } else if (WIFSTOPPED(status)) {
                 updateProcessStatus(current, current->pid, SUSPENDED);
-                fprintf(stderr, "Recieved Signal: Stopped\n");
             } else if (WIFCONTINUED(status)) {
                 updateProcessStatus(current, current->pid, RUNNING);
             }
