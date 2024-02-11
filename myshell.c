@@ -10,6 +10,7 @@
 #define TERMINATED  (-1)
 #define RUNNING 1
 #define SUSPENDED 0
+#define HISTLEN 20
 
 typedef struct process process;
 typedef struct cmdLine cmdLine;
@@ -25,7 +26,7 @@ history shellHistory;
 // <--- Struct Declarations --->
 
 typedef struct history{
-    char *inputs[20];
+    char *inputs[HISTLEN];
     int historySize;
     int firstIndex;
 } history;
@@ -46,18 +47,18 @@ char* getHistoryRecord(int index){
     if(index < 0 || index >= shellHistory.historySize){
         return "";
     }
-    if(shellHistory.historySize == 20){
-        return shellHistory.inputs[(shellHistory.firstIndex + index) % 20];
+    if(shellHistory.historySize == HISTLEN){
+        return shellHistory.inputs[(shellHistory.firstIndex + index) % HISTLEN];
     } else {
         return shellHistory.inputs[index];
     }
 }
 
 void addHistoryRecord(char input[2048]){
-    if(shellHistory.historySize == 20){
+    if(shellHistory.historySize == HISTLEN){
         free(shellHistory.inputs[shellHistory.firstIndex]);
         shellHistory.inputs[shellHistory.firstIndex] = strdup(input);
-        shellHistory.firstIndex = (shellHistory.firstIndex + 1) % 20;
+        shellHistory.firstIndex = (shellHistory.firstIndex + 1) % HISTLEN;
     } else {
         shellHistory.inputs[shellHistory.historySize] = strdup(input);
         shellHistory.historySize++;
@@ -67,7 +68,7 @@ void addHistoryRecord(char input[2048]){
 void printHistory(){
     for(int i = 0; i < shellHistory.historySize; i++){
         // print 1 based index
-        printf("%d %s\n",i+1,getHistoryRecord((shellHistory.firstIndex + i) % 20));
+        printf("%d %s\n",i+1,getHistoryRecord((shellHistory.firstIndex + i) % HISTLEN));
     }
 }
 
