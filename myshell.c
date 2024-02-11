@@ -6,34 +6,68 @@
 #include "LineParser.h"
 #include <sys/wait.h>
 #include <errno.h>
-#include <syscall.h>
 
 #define TERMINATED  (-1)
 #define RUNNING 1
 #define SUSPENDED 0
 
-char* statusToString(int status){
-    switch(status){
-        case TERMINATED:
-            return "TERMINATED";
-        case RUNNING:
-            return "RUNNING";
-        case SUSPENDED:
-            return "SUSPENDED";
-        default:
-            return "UNKNOWN";
-    }
-}
+typedef struct process process;
+
+typedef struct cmdLine cmdLine;
+typedef struct history history;
+// <--- Global Variables --->
+
+
+int debugMode = 0;
+
+process *processes = NULL;
+history shellHistory;
+// <--- Struct Declarations --->
+
+typedef struct history{
+    char *inputs[20];
+    int historySize;
+    int firstIndex;
+} history;
 
 typedef struct process{
     cmdLine* cmd;                         /* the parsed command line*/
     pid_t pid; 		                  /* the process id that is running the command*/
     int status;                           /* status of the process: RUNNING/SUSPENDED/TERMINATED */
     struct process *next;	                  /* next process in chain */
-}process;
+} process;
 
-int debugMode = 0;
-process *processes = NULL;
+// <--- History Functions --->
+
+char* getHistoryRecord(int index){
+    if(index < 0 || index >= shellHistory.historySize){
+        return "";
+    }
+    if(shellHistory.historySize == 20){
+        return shellHistory.inputs[(shellHistory.firstIndex + index) % 20];
+    } else {
+        return shellHistory.inputs[index];
+    }
+}
+
+void addHistoryRecord(char input[2048]){
+    if(shellHistory.historySize == 20){
+        free(shellHistory.inputs[shellHistory.firstIndex]);
+        shellHistory.inputs[shellHistory.firstIndex] = strdup(input);
+        shellHistory.firstIndex = (shellHistory.firstIndex + 1) % 20;
+    } else {
+        shellHistory.inputs[shellHistory.historySize] = strdup(input);
+        shellHistory.historySize++;
+    }
+}
+
+void printHistory(){
+    for(int i = 0; i < shellHistory.historySize; i++){
+        printf("%d %s\n",i,getHistoryRecord((shellHistory.firstIndex + i) % 20));
+    }
+}
+
+// <--- Process Functions --->
 
 void addProcess(process **process_list, cmdLine* cmd, pid_t pid){
     process * newProcess = malloc(sizeof(process));
@@ -57,6 +91,19 @@ void addProcess(process **process_list, cmdLine* cmd, pid_t pid){
 
 void updateProcessStatus(process* curr, int pid, int status){
     curr->status = status;
+}
+
+char* statusToString(int status){
+    switch(status){
+        case TERMINATED:
+            return "TERMINATED";
+        case RUNNING:
+            return "RUNNING";
+        case SUSPENDED:
+            return "SUSPENDED";
+        default:
+            return "UNKNOWN";
+    }
 }
 
 void updateProcessList(process **process_list){
@@ -85,7 +132,6 @@ void updateProcessList(process **process_list){
         current = current->next;
     }
 }
-
 
 void removeAllDeadProcesses(process** process_list) {
     process* current = *process_list;
@@ -116,13 +162,7 @@ void removeAllDeadProcesses(process** process_list) {
     }
 }
 
-
-void printArray(char const *array[], int size){
-    for(int i = 0; i < size; i++){
-        printf("%s ",array[i]);
-    }
-    printf("\n");
-}
+void printArray(char const *array[], int size);
 
 void printProcessList(process **process_list){
     updateProcessList(process_list);
@@ -150,6 +190,8 @@ void freeProcessList(process* process_list){
         curr = next;
     }
 }
+
+// <--- Shell Functions --->
 
 void execute(cmdLine *line) {
     if (line->next == 0) {
@@ -255,6 +297,24 @@ void execute(cmdLine *line) {
     }
 }
 
+
+
+void sendSignal(int pid, int signum) {
+    // Send signal to a process
+    if (kill(pid, signum) == -1) {
+        perror("kill");
+    }
+}
+
+// <--- Helper Functions --->
+
+void printArray(char const *array[], int size){
+    for(int i = 0; i < size; i++){
+        printf("%s ",array[i]);
+    }
+    printf("\n");
+}
+
 void readArgs(int argc, char **argv) {
     for(int i = 1; i < argc; i++){
         if(strcmp(argv[i],"-d") == 0) {
@@ -263,12 +323,7 @@ void readArgs(int argc, char **argv) {
     }
 }
 
-void sendSignal(int pid, int signum) {
-    // Send signal to a process
-    if (kill(pid, signum) == -1) {
-        perror("kill");
-    }
-}
+// <--- Main Function --->
 
 int main(int argc, char** argv) {
 
