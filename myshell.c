@@ -332,14 +332,6 @@ void readArgs(int argc, char **argv) {
     }
 }
 
-int isFirstDigit(char c){
-    return c >= '1' && c <= '9';
-}
-
-int isDigit(char c){
-    return c >= '0' && c <= '9';
-}
-
 // <--- Main Function --->
 
 int main(int argc, char** argv) {
