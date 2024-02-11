@@ -12,16 +12,16 @@
 #define SUSPENDED 0
 
 typedef struct process process;
-
 typedef struct cmdLine cmdLine;
 typedef struct history history;
+
+
 // <--- Global Variables --->
 
-
 int debugMode = 0;
-
 process *processes = NULL;
 history shellHistory;
+
 // <--- Struct Declarations --->
 
 typedef struct history{
@@ -296,8 +296,6 @@ void execute(cmdLine *line) {
         }
     }
 }
-
-
 
 void sendSignal(int pid, int signum) {
     // Send signal to a process
