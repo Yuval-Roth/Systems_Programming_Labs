@@ -49,7 +49,7 @@ char* getHistoryRecord(int index){
 }
 
 void decIndex() {
-    shellHistory.firstIndex = (shellHistory.firstIndex - 1);
+    shellHistory.firstIndex--;
     if(shellHistory.firstIndex < 0){
         shellHistory.firstIndex = HISTLEN - 1;
     }
@@ -59,11 +59,10 @@ void addHistoryRecord(char input[2048]){
     decIndex();
     if(shellHistory.historySize == HISTLEN){
         free(shellHistory.inputs[shellHistory.firstIndex]);
-        shellHistory.inputs[shellHistory.firstIndex] = strdup(input);
     } else {
-        shellHistory.inputs[shellHistory.firstIndex] = strdup(input);
         shellHistory.historySize++;
     }
+    shellHistory.inputs[shellHistory.firstIndex] = strdup(input);
 }
 
 void printHistory(){
@@ -333,6 +332,7 @@ void readArgs(int argc, char **argv) {
         }
     }
 }
+
 
 // <--- Main Function --->
 
