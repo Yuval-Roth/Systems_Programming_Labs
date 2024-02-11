@@ -72,6 +72,12 @@ void printHistory(){
     }
 }
 
+void freeHistory(){
+    for(int i = 0; i < shellHistory.historySize; i++){
+        free(shellHistory.inputs[i]);
+    }
+}
+
 // <--- Process Functions --->
 
 void addProcess(process **process_list, cmdLine* cmd, pid_t pid){
@@ -326,12 +332,21 @@ void readArgs(int argc, char **argv) {
     }
 }
 
+int isFirstDigit(char c){
+    return c >= '1' && c <= '9';
+}
+
+int isDigit(char c){
+    return c >= '0' && c <= '9';
+}
+
 // <--- Main Function --->
 
 int main(int argc, char** argv) {
 
     readArgs(argc,argv);
 
+    int historyIndexToExecute = -1;
     char userInput[2048];
     cmdLine *parsedCmdLine;
 
@@ -361,9 +376,58 @@ int main(int argc, char** argv) {
         if (strcmp(userInput, "quit") == 0) {
             break;
         }
+
+        // handle history
+        if(strcmp(userInput, "history") == 0){
+            if(shellHistory.historySize == 0){
+                printf("No commands in history\n");
+            }
+            printHistory();
+            continue;
+        }
+
+        // handle !x
+        if(userInput[0] == '!') {
+            if(shellHistory.historySize == 0){
+                printf("No commands in history\n");
+                continue;
+            }
+            if (userInput[1] == '!') {
+                historyIndexToExecute = shellHistory.firstIndex;
+            } else {
+                int index;
+                char *endptr;
+
+                errno = 0;
+                index = strtol(&userInput[1], &endptr, 10);
+                if (errno != 0) {
+                    perror("strtol");
+                    continue;
+                }
+
+                if(*endptr != '\0'){
+                    printf("Invalid number\n");
+                    continue;
+                }
+
+                if (index < 1 || index > shellHistory.historySize) {
+                    printf("Index out of range\n");
+                    continue;
+                }
+
+                historyIndexToExecute = index;
+            }
+            if(historyIndexToExecute != -1){
+                strcpy(userInput, getHistoryRecord(historyIndexToExecute));
+            }
+        }
+
+        addHistoryRecord(userInput);
+
         // Parse the input using parseCmdLines
         parsedCmdLine = parseCmdLines(userInput);
 
+        // handle cd
         if (strcmp(parsedCmdLine->arguments[0], "cd") == 0 && parsedCmdLine->argCount >= 2) {
             // Change the current working directory
             if (chdir(parsedCmdLine->arguments[1]) == -1) {
@@ -373,21 +437,25 @@ int main(int argc, char** argv) {
             continue; // Skip the execution step for "cd" command
         }
 
+        // handle suspend
         if (strcmp(parsedCmdLine->arguments[0], "suspend") == 0 && parsedCmdLine->argCount >= 2) {
             sendSignal(atoi(parsedCmdLine->arguments[1]),SIGTSTP);
             continue;
         }
 
+        // handle wake up
         if (strcmp(parsedCmdLine->arguments[0], "wakeup") == 0 && parsedCmdLine->argCount >= 2) {
             sendSignal(atoi(parsedCmdLine->arguments[1]),SIGCONT);
             continue;
         }
 
+        // handle nuke
         if (strcmp(parsedCmdLine->arguments[0], "nuke") == 0 && parsedCmdLine->argCount >= 2) {
             sendSignal(atoi(parsedCmdLine->arguments[1]),SIGINT);
             continue;
         }
 
+        // handle procs
         if (strcmp(parsedCmdLine->arguments[0], "procs") == 0) {
             printProcessList(&processes);
             continue;
