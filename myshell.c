@@ -40,6 +40,9 @@ typedef struct process{
 // <--- History Functions --->
 
 char* getHistoryRecord(int index){
+
+    index--; // convert to 0 based index because the user will enter 1 based index
+
     if(index < 0 || index >= shellHistory.historySize){
         return "";
     }
@@ -63,7 +66,8 @@ void addHistoryRecord(char input[2048]){
 
 void printHistory(){
     for(int i = 0; i < shellHistory.historySize; i++){
-        printf("%d %s\n",i,getHistoryRecord((shellHistory.firstIndex + i) % 20));
+        // print 1 based index
+        printf("%d %s\n",i+1,getHistoryRecord((shellHistory.firstIndex + i) % 20));
     }
 }
 
