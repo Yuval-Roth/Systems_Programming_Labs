@@ -42,38 +42,40 @@ typedef struct process{
 
 char* getHistoryRecord(int index){
 
-    index--; // convert to 0 based index because the user will enter 1 based index
-
     if(index < 0 || index >= shellHistory.historySize){
-        return "";
+        return "Index out of range";
     }
-    if(shellHistory.historySize == HISTLEN){
-        return shellHistory.inputs[(shellHistory.firstIndex + index) % HISTLEN];
-    } else {
-        return shellHistory.inputs[index];
+    return shellHistory.inputs[(shellHistory.firstIndex + index) % HISTLEN];
+}
+
+void decIndex() {
+    shellHistory.firstIndex = (shellHistory.firstIndex - 1);
+    if(shellHistory.firstIndex < 0){
+        shellHistory.firstIndex = HISTLEN - 1;
     }
 }
 
 void addHistoryRecord(char input[2048]){
+    decIndex();
     if(shellHistory.historySize == HISTLEN){
         free(shellHistory.inputs[shellHistory.firstIndex]);
         shellHistory.inputs[shellHistory.firstIndex] = strdup(input);
-        shellHistory.firstIndex = (shellHistory.firstIndex + 1) % HISTLEN;
     } else {
-        shellHistory.inputs[shellHistory.historySize] = strdup(input);
+        shellHistory.inputs[shellHistory.firstIndex] = strdup(input);
         shellHistory.historySize++;
     }
 }
 
 void printHistory(){
-    for(int i = 0; i < shellHistory.historySize; i++){
+    for(int i = shellHistory.historySize-1; i >= 0; i--){
         // print 1 based index
-        printf("%d %s\n",i+1,getHistoryRecord((shellHistory.firstIndex + i) % HISTLEN));
+        char *record = getHistoryRecord(i);
+        printf("%d %s\n", i + 1, record);
     }
 }
 
 void freeHistory(){
-    for(int i = 0; i < shellHistory.historySize; i++){
+    for(int i = HISTLEN-1 ; i >= HISTLEN - shellHistory.historySize ; i--){
         free(shellHistory.inputs[i]);
     }
 }
@@ -341,6 +343,7 @@ int main(int argc, char** argv) {
     int historyIndexToExecute = -1;
     char userInput[2048];
     cmdLine *parsedCmdLine;
+    shellHistory.firstIndex = HISTLEN;
 
     while (1) {
         // Display the current working directory as the prompt
@@ -378,40 +381,48 @@ int main(int argc, char** argv) {
             continue;
         }
 
-        // handle !x
-        if(userInput[0] == '!') {
+        // handle !!
+        if(strcmp(userInput, "!!") == 0){
             if(shellHistory.historySize == 0){
                 printf("No commands in history\n");
                 continue;
             }
-            if (userInput[1] == '!') {
-                historyIndexToExecute = shellHistory.firstIndex;
-            } else {
-                int index;
-                char *endptr;
+            historyIndexToExecute = 1;
+        }
 
-                errno = 0;
-                index = strtol(&userInput[1], &endptr, 10);
-                if (errno != 0) {
-                    perror("strtol");
-                    continue;
-                }
 
-                if(*endptr != '\0'){
-                    printf("Invalid number\n");
-                    continue;
-                }
-
-                if (index < 1 || index > shellHistory.historySize) {
-                    printf("Index out of range\n");
-                    continue;
-                }
-
-                historyIndexToExecute = index;
+        // handle !<number>
+        if(userInput[0] == '!' && strcmp(userInput, "!!") != 0) {
+            if(shellHistory.historySize == 0){
+                printf("No commands in history\n");
+                continue;
             }
-            if(historyIndexToExecute != -1){
-                strcpy(userInput, getHistoryRecord(historyIndexToExecute));
+
+            int index;
+            char *endptr;
+
+            errno = 0;
+            index = strtol(&userInput[1], &endptr, 10);
+            if (errno != 0) {
+                perror("strtol");
+                continue;
             }
+
+            if(*endptr != '\0'){
+                printf("Invalid number\n");
+                continue;
+            }
+
+            if (index < 1 || index > shellHistory.historySize) {
+                printf("Index out of range\n");
+                continue;
+            }
+            historyIndexToExecute = index;
+        }
+
+        if(historyIndexToExecute != -1){
+            strcpy(userInput,getHistoryRecord(historyIndexToExecute-1));
+            historyIndexToExecute = -1;
         }
 
         addHistoryRecord(userInput);
@@ -462,6 +473,7 @@ int main(int argc, char** argv) {
         }
     }
     freeProcessList(processes);
+    freeHistory();
 
     return EXIT_SUCCESS;
 }
