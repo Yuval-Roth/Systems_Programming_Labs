@@ -380,19 +380,13 @@ int main(int argc, char** argv) {
             printHistory();
             continue;
         }
-
-        // handle !!
         if(strcmp(userInput, "!!") == 0){
             if(shellHistory.historySize == 0){
                 printf("No commands in history\n");
                 continue;
             }
             historyIndexToExecute = 1;
-        }
-
-
-        // handle !<number>
-        if(userInput[0] == '!' && strcmp(userInput, "!!") != 0) {
+        } else if(userInput[0] == '!') { // handle !<number>
             if(shellHistory.historySize == 0){
                 printf("No commands in history\n");
                 continue;
