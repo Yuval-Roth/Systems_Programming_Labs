@@ -12,7 +12,13 @@ extern int system_call();
 
 int main (int argc , char* argv[], char* envp[])
 {
-  /*Complete the task here*/
+    int i;
 
-  return 0;
+    for(i=1 ;i<argc; i++)
+    {
+        system_call(SYS_WRITE,STDOUT,argv[i],strlen(argv[i]));
+        system_call(SYS_WRITE,STDOUT," ",1);
+    }
+    system_call(SYS_WRITE,STDOUT,"\n",1);
+    return 0;
 }

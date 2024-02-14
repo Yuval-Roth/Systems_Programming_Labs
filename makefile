@@ -1,6 +1,7 @@
 TARGETS = task0
 
 all: clean $(TARGETS)
+	rm -f *.o
 
 NASM_ARGS = nasm -f elf32
 
@@ -10,7 +11,7 @@ task0: start.o main.o util.o
 	ld -m elf_i386 start.o main.o util.o -o task0
 
 start.o:
-	$(NASM_ARGS) start.s -o start.o
+	$(NASM_ARGS) start.asm -o start.o
 
 util.o:
 	$(GCC_ARGS) util.c -o util.o
