@@ -1,4 +1,4 @@
-TARGETS = task0
+TARGETS = task0 task1
 
 all: clean $(TARGETS)
 	rm -f *.o
@@ -7,8 +7,16 @@ NASM_ARGS = nasm -f elf32
 
 GCC_ARGS = gcc -m32 -Wall -ansi -c -nostdlib -fno-stack-protector
 
+LINKER_ARGS = ld -m elf_i386
+
 task0: start.o main.o util.o
-	ld -m elf_i386 start.o main.o util.o -o task0
+	$(LINKER_ARGS) start.o main.o util.o -o task0
+
+task1: task1.o util.o
+	$(LINKER_ARGS) util.o task1.o -o task1
+
+task1.o:
+	$(NASM_ARGS) task1.asm -o task1.o
 
 start.o:
 	$(NASM_ARGS) start.asm -o start.o
