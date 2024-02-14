@@ -69,7 +69,7 @@ void printHistory(){
     for(int i = shellHistory.historySize-1; i >= 0; i--){
         // print 1 based index
         char *record = getHistoryRecord(i);
-        printf("%d %s\n", i + 1, record);
+        printf("%d %s\n", shellHistory.historySize - i, record);
     }
 }
 
