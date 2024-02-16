@@ -56,13 +56,11 @@ main:
 startloop:
     cmp esi,edi                 ; jump if greater than argc
     jge endloop
-    push 0                      ; leave space for return value
     pushad
 
     ; get length of string
     push dword [ecx]            ; argument to strlen
     call strlen
-    mov dword [ebp-4], eax      ; store strlen return value
     clean_stack(1)
 
     ; print string (eax = strlen, *ecx = string)
@@ -76,12 +74,12 @@ startloop:
     add esi, 1                  ; increment index
 if:
     cmp esi, edi                ; if index < argc print space
-    jge continue
+    jge end_if
 then:
     pushad
     call print_space
     popad
-continue:
+end_if:
     jmp startloop
 endloop:
     cmp edi, 1                  ; if argc > 1 print newline
