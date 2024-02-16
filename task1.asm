@@ -1,4 +1,5 @@
 %define arg(n) dword [ebp+4*(2+n)]
+%define clean_stack(n) add esp, 4*n
 
 section .text
 global _start
@@ -44,31 +45,35 @@ system_call:
 main:
     push ebp
     mov ebp, esp
-    mov esi, 1          ; index in loop
-    mov edi, [ebp + 2*4]    ; argc
-    mov ecx , arg(1)
+    mov esi, 1                  ; index in loop
+    mov edi, arg(0)             ; argc
+    mov ecx, arg(1)             ; ecx = argv[0]
+    add ecx, 4                  ; skip program name
 startloop:
-    cmp esi,edi             ; jump if greater than argc
-    jg endloop
-    push 0                  ; leave space for return value
+    cmp esi,edi                 ; jump if greater than argc
+    jge endloop
+    push 0                      ; leave space for return value
     pushad
-    push dword [ecx]          ; argument to strlen
+
+    ; get length of string
+    push dword [ecx]            ; argument to strlen
     call strlen
-    add esp, 4              ; clean up stack
-    mov dword [ebp-4] , eax ; store strlen return value
-    push eax                ; 4th arg to system_call
-    push dword[ecx]                ; 3rd arg to system_call
-    push 1                  ; 2nd arg to system_call
-    push 4                  ; 1st arg to system_call
-    call system_call   ; print string
-    add esp, 4*4        ; clean up stack
+    mov dword [ebp-4], eax      ; store strlen return value
+    clean_stack(1)
+
+    ; print string (eax = strlen, *ecx = string)
+    push eax                    ; 4th arg to system_call
+    push dword [ecx]            ; 3rd arg to system_call
+    push 1                      ; 2nd arg to system_call
+    push 4                      ; 1st arg to system_call
+    call system_call
+    clean_stack(4)
+
     popad
-    add ecx, 4       ; move to next string
-    add esi, 1         ; increment index
+    add ecx, 4                  ; move to next string
+    add esi, 1                  ; increment index
     jmp startloop
 endloop:
+    mov esp, ebp
+    pop ebp
     ret
-
-
-
-
