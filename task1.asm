@@ -1,6 +1,10 @@
 %define arg(n) dword [ebp+4*(2+n)]
 %define clean_stack(n) add esp, 4*n
 
+section .data
+    space db 0x20,0x0
+    newline db 0x0A,0x0
+
 section .text
 global _start
 global system_call
@@ -62,18 +66,62 @@ startloop:
     clean_stack(1)
 
     ; print string (eax = strlen, *ecx = string)
-    push eax                    ; 4th arg to system_call
-    push dword [ecx]            ; 3rd arg to system_call
-    push 1                      ; 2nd arg to system_call
-    push 4                      ; 1st arg to system_call
-    call system_call
-    clean_stack(4)
+    push eax                    ; strlen
+    push dword [ecx]            ; str
+    call print
+    clean_stack(2)
 
     popad
     add ecx, 4                  ; move to next string
     add esi, 1                  ; increment index
+if:
+    cmp esi, edi                ; if index < argc print space
+    jge continue
+then:
+    pushad
+    call print_space
+    popad
+continue:
     jmp startloop
 endloop:
+    cmp edi, 1                  ; if argc > 1 print newline
+    jle no_newline
+    pushad
+    call print_newline
+    popad
+no_newline:
+    mov esp, ebp
+    pop ebp
+    ret
+
+print:
+    push ebp
+    mov ebp, esp
+    push arg(1)
+    push arg(0)
+    push 1
+    push 4
+    call system_call
+    mov esp, ebp
+    pop ebp
+    ret
+
+print_space:
+    push ebp
+    mov ebp, esp
+    push 1
+    push space
+    call print
+    mov esp, ebp
+    pop ebp
+    ret
+
+print_newline:
+    push ebp
+    mov ebp, esp
+    push 1
+    push newline
+    call print
     mov esp, ebp
     pop ebp
     ret
