@@ -3,9 +3,9 @@ TARGETS = task0 task1
 all: clean $(TARGETS)
 	rm -f *.o
 
-NASM_ARGS = nasm -f elf32
+NASM_ARGS = nasm -g -f elf32
 
-GCC_ARGS = gcc -m32 -Wall -ansi -c -nostdlib -fno-stack-protector
+GCC_ARGS = gcc -m32 -g -Wall -ansi -c -nostdlib -fno-stack-protector
 
 LINKER_ARGS = ld -m elf_i386
 

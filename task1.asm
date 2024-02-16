@@ -1,8 +1,9 @@
+%define arg(n) dword [ebp+4*(2+n)]
+
 section .text
 global _start
 global system_call
 extern strlen
-
 _start:
     pop     dword ecx    ; ecx = argc
     mov     esi,esp      ; esi = argv
@@ -43,24 +44,26 @@ system_call:
 main:
     push ebp
     mov ebp, esp
-    sub esp, 4          ; leave space for local var on stack
-    mov eax, 4          ; print syscall
-    mov ebx, 1          ; stdout
-    mov esi, 0          ; index in loop
+    mov esi, 1          ; index in loop
     mov edi, [ebp + 2*4]    ; argc
+    mov ecx , arg(1)
 startloop:
-    cmp esi,edi       ; jump if greater than argc
+    cmp esi,edi             ; jump if greater than argc
     jg endloop
-    mov ecx , [ebp + 1*4 + 2*4 + esi * 4] ; argv[esi]
+    push 0                  ; leave space for return value
     pushad
-    mov eax , ecx      ; put argv[esi] in eax for strlen
+    push dword [ecx]          ; argument to strlen
     call strlen
-    mov [ebp-4] , eax  ; store length of string
-    popad
-    mov edx, [ebp-4]   ; put length of string in edx
-    pushad
+    add esp, 4              ; clean up stack
+    mov dword [ebp-4] , eax ; store strlen return value
+    push eax                ; 4th arg to system_call
+    push dword[ecx]                ; 3rd arg to system_call
+    push 1                  ; 2nd arg to system_call
+    push 4                  ; 1st arg to system_call
     call system_call   ; print string
+    add esp, 4*4        ; clean up stack
     popad
+    add ecx, 4       ; move to next string
     add esi, 1         ; increment index
     jmp startloop
 endloop:
