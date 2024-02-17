@@ -1,18 +1,19 @@
 %define arg(n) dword [ebp+4*(2+n)]
 %define clean_stack(n) add esp, 4*n
+%define stmalloc(n) sub esp, n
 %define sys_write 4
 %define sys_read 3
 %define stdin 0
 %define stdout 1
 %define stderr 2
 
-section .globals
-    global filein
-    global fileout
-
 section .data
     space db 0x20,0x0
     newline db 0x0A,0x0
+
+section .bss
+    fileout resd 1
+    filein resd 1
 
 section .text
 global _start
@@ -31,7 +32,6 @@ _start:
     push    dword ecx   ; int argc
 
     call    main        ; int main( int argc, char *argv[], char *envp[] )
-    call    encode
 
     mov     ebx,eax
     mov     eax,1
@@ -59,42 +59,56 @@ system_call:
 encode:
     push ebp
     mov ebp, esp
-    sub esp, 4 + 256  ; to access this buffer,
+    stmalloc(4)         ; input size
+    stmalloc(256 + 1)   ; buffer allocation + null char
 
     ; call readline
-    push 256
-    push ebp-4
+    mov esi, esp        ; esi = buffer
+    push 256            ; buffer size
+    push esi
     call readline
+    ; store length of input
+    mov esi, ebp
+    sub esi, 4
+    mov dword [esi], eax
     clean_stack(2)
 
+    ; null terminate the input
+    mov esi, esp            ; esi = buffer[0]
+    add esi, eax            ; esi = buffer[strlen]
+    mov byte [esi], 0       ; null terminate
+
     ; increment each character (if A to z) by 1
-    mov edi, ebp-4      ; edi = buffer
+    mov edi, esp            ; edi = buffer
     L_while2:
-    cmp byte [edi], 0
+    cmp byte [edi], 0       ; if null char, then end
     je L_while2_end
     cmp byte [edi], "A"
     jl L_while2_next
     cmp byte [edi], "Z"
     jg L_while2_next
 
-    ; if Z, set to A
+    ; if Z
     cmp byte [edi], "Z"
-    je yes_Z
+    jne L_while2_not_Z
+    ; then A
     mov byte [edi], "A"
     jmp L_while2_next
-    ; not Z, increment
+    ; else increment
+    L_while2_not_Z:
     add byte [edi], 1
     L_while2_next:
     add edi, 1
     jmp L_while2
     L_while2_end:
-    pushad
-    push 256
-    push ebp-4
+    ; print to fileout
+    mov esi, ebp
+    sub esi, 4
+    mov edi, esp
+    push dword [esi]            ; strlen
+    push edi                    ; str
     call print_to_fileout
     clean_stack(2)
-    call print_newline_to_fileout
-    popad
     mov esp, ebp
     pop ebp
     ret
@@ -132,6 +146,10 @@ main:
     add esi, 1                  ; increment index
     jmp L_while1
     L_while1_end:
+
+    ; call encode
+    call encode
+
     mov esp, ebp
     pop ebp
     ret
@@ -153,7 +171,7 @@ print_to_fileout:
     mov ebp, esp
     push arg(1)
     push arg(0)
-    push fileout
+    push dword [fileout]
     push sys_write
     call system_call
     mov esp, ebp
@@ -175,7 +193,7 @@ print_newline_to_fileout:
     mov ebp, esp
     push 1
     push newline
-    call print
+    call print_to_fileout
     mov esp, ebp
     pop ebp
     ret
@@ -185,7 +203,7 @@ readline:
     mov ebp, esp
     push arg(1)
     push arg(0)
-    push filein
+    push dword [filein]
     push sys_read
     call system_call
     mov esp, ebp
