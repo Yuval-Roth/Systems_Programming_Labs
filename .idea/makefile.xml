@@ -2,11 +2,11 @@
 <project version="4">
   <component name="MakefileBuildTargetsManager">
     <user-build-targets>
-      <build-target name="all">
+      <build-target name="task1">
         <build-configurations>
           <build-configuration>
             <make-targets>
-              <make-target>all</make-target>
+              <make-target>task1</make-target>
             </make-targets>
           </build-configuration>
         </build-configurations>

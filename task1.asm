@@ -1,15 +1,29 @@
 %define arg(n) dword [ebp+4*(2+n)]
 %define clean_stack(n) add esp, 4*n
 %define stmalloc(n) sub esp, n
-%define sys_write 4
 %define sys_read 3
+%define sys_write 4
+%define sys_open 5
+%define sys_close 6
 %define stdin 0
 %define stdout 1
 %define stderr 2
+%define O_RDONLY 0
+%define O_WRONLY 1
+%define O_RDWR 2
+%define O_CREAT 64
+%define O_TRUNC 512
+%define O_APPEND 1024
 
 section .data
     space db 0x20,0x0
     newline db 0x0A,0x0
+    dash_i db "-i",0x0
+    dash_i_fail db "Failed to open infile",0x0A,0x0
+    dash_i_fail_len equ $-dash_i_fail - 1
+    dash_o db "-o",0x0
+    dash_o_fail db "Failed to open outfile",0x0A,0x0
+    dash_o_fail_len equ $-dash_o_fail - 1
 
 section .bss
     fileout resd 1
@@ -19,6 +33,7 @@ section .text
 global _start
 global system_call
 extern strlen
+extern strncmp
 _start:
     pop     dword ecx    ; ecx = argc
     mov     esi,esp      ; esi = argv
@@ -68,8 +83,7 @@ encode:
     push esi
     call readline
     ; store length of input
-    mov esi, ebp
-    sub esi, 4
+    lea esi, [ebp-4]
     mov dword [esi], eax
     clean_stack(2)
 
@@ -102,8 +116,7 @@ encode:
     jmp L_while2
     L_while2_end:
     ; print to fileout
-    mov esi, ebp
-    sub esi, 4
+    lea esi, [ebp-4]
     mov edi, esp
     push dword [esi]            ; strlen
     push edi                    ; str
@@ -120,15 +133,56 @@ main:
     mov dword [filein], stdin
     mov dword [fileout], stdout
 
-    mov esi, 1                  ; index in loop
-    mov edi, arg(0)             ; argc
+    mov ebx, 1                  ; index in loop
+    mov edx, arg(0)             ; argc
     mov ecx, arg(1)             ; ecx = argv[0]
     add ecx, 4                  ; skip program name
     L_while1:
-    cmp esi,edi                 ; jump if greater than argc
+    cmp ebx,edx                 ; jump if greater than argc
     jge L_while1_end
-    pushad
 
+    ; check -i
+    pushad
+    push 2                      ; args for strncmp
+    push dword [ecx]
+    push dash_i
+    call strncmp
+    clean_stack(3)
+    cmp eax, 0                  ; is arg -i?
+    popad
+    jne L_check_dash_o
+    mov esi, [ecx]              ; get arg string
+    lea esi, [esi+2]            ; skip -i
+    pushad
+    push esi                    ; filename
+    call open_infile
+    clean_stack(1)
+    cmp eax, 0                 ; if error, then continue to print to stdout
+    popad
+    jl end_program
+    jmp L_continue_to_print
+    L_check_dash_o:
+    pushad
+    push 2                      ; args for strncmp
+    push dword [ecx]
+    push dash_o
+    call strncmp
+    clean_stack(3)
+    cmp eax, 0                  ; is arg -o ?
+    popad
+    jl L_continue_to_print
+    mov esi, [ecx]              ; get arg string
+    lea esi, [esi+2]            ; skip -o
+    pushad
+    push esi                    ; filename
+    call open_outfile
+    clean_stack(1)
+    cmp eax, 0                 ; if error, then continue to print to stdout
+    popad
+    jl end_program
+
+    L_continue_to_print:
+    pushad
     ; get length of string
     push dword [ecx]            ; argument to strlen
     call strlen
@@ -143,13 +197,19 @@ main:
 
     popad
     add ecx, 4                  ; move to next string
-    add esi, 1                  ; increment index
+    add ebx, 1                  ; increment index
     jmp L_while1
     L_while1_end:
 
     ; call encode
     call encode
 
+    ; close file descriptors
+    push dword [filein]
+    call close_file
+    push dword [fileout]
+    call close_file
+    end_program:
     mov esp, ebp
     pop ebp
     ret
@@ -205,6 +265,62 @@ readline:
     push arg(0)
     push dword [filein]
     push sys_read
+    call system_call
+    mov esp, ebp
+    pop ebp
+    ret
+
+open_outfile:
+    push ebp
+    mov ebp, esp
+    push 0777o
+    push O_CREAT | O_WRONLY  | O_TRUNC
+    push arg(0)
+    push sys_open
+    call system_call
+    cmp eax, 0
+    jl L_open_outfile_fail
+    mov dword [fileout], eax
+    jmp L_open_outfile_end
+    L_open_outfile_fail:
+    push dash_o_fail_len
+    push dash_o_fail
+    call print_err
+    L_open_outfile_end:
+    mov esp, ebp
+    pop ebp
+    ret
+
+open_infile:
+    push ebp
+    mov ebp, esp
+    push O_RDONLY
+    push 0
+    push arg(0)
+    push sys_open
+    call system_call
+    cmp eax, 0
+    jl L_open_infile_fail
+    mov dword [filein], eax
+    jmp L_open_infile_end
+    L_open_infile_fail:
+    push dash_i_fail_len
+    push dash_i_fail
+    call print_err
+    L_open_infile_end:
+    mov esp, ebp
+    pop ebp
+    ret
+
+close_file:
+    push ebp
+    mov ebp, esp
+
+
+    push 0
+    push 0
+    push arg(0)
+    push sys_close
     call system_call
     mov esp, ebp
     pop ebp

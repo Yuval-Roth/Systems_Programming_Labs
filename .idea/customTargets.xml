@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="CLionExternalBuildManager">
-    <target id="f19885dc-6f94-4fa7-8756-47217677fceb" name="Unnamed" defaultType="MAKE">
-      <configuration id="bf90b73a-c834-46d7-9c2a-6e3c5b7ac851" name="Unnamed">
+    <target id="fec1d520-363d-464e-abd7-c78630ff7b8b" name="task1" defaultType="MAKE">
+      <configuration id="d4418b80-4efe-4de0-97db-d5e7720c6e5d" name="task1">
         <build type="MAKE">
-          <make targetName="all" />
+          <make targetName="task1" />
         </build>
         <clean type="MAKE">
           <make targetName="clean" />
