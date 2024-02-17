@@ -1,5 +1,14 @@
 %define arg(n) dword [ebp+4*(2+n)]
 %define clean_stack(n) add esp, 4*n
+%define sys_write 4
+%define sys_read 3
+%define stdin 0
+%define stdout 1
+%define stderr 2
+
+section .globals
+    global filein
+    global fileout
 
 section .data
     space db 0x20,0x0
@@ -22,6 +31,7 @@ _start:
     push    dword ecx   ; int argc
 
     call    main        ; int main( int argc, char *argv[], char *envp[] )
+    call    encode
 
     mov     ebx,eax
     mov     eax,1
@@ -46,16 +56,63 @@ system_call:
     pop     ebp             ; Restore caller state
     ret                     ; Back to caller
 
+encode:
+    push ebp
+    mov ebp, esp
+    sub esp, 4 + 256  ; to access this buffer,
+
+    ; call readline
+    push 256
+    push ebp-4
+    call readline
+    clean_stack(2)
+
+    ; increment each character (if A to z) by 1
+    mov edi, ebp-4      ; edi = buffer
+    L_while2:
+    cmp byte [edi], 0
+    je L_while2_end
+    cmp byte [edi], "A"
+    jl L_while2_next
+    cmp byte [edi], "Z"
+    jg L_while2_next
+
+    ; if Z, set to A
+    cmp byte [edi], "Z"
+    je yes_Z
+    mov byte [edi], "A"
+    jmp L_while2_next
+    ; not Z, increment
+    add byte [edi], 1
+    L_while2_next:
+    add edi, 1
+    jmp L_while2
+    L_while2_end:
+    pushad
+    push 256
+    push ebp-4
+    call print_to_fileout
+    clean_stack(2)
+    call print_newline_to_fileout
+    popad
+    mov esp, ebp
+    pop ebp
+    ret
+
 main:
     push ebp
     mov ebp, esp
+    ; set default values for filein and fileout
+    mov dword [filein], stdin
+    mov dword [fileout], stdout
+
     mov esi, 1                  ; index in loop
     mov edi, arg(0)             ; argc
     mov ecx, arg(1)             ; ecx = argv[0]
     add ecx, 4                  ; skip program name
-startloop:
+    L_while1:
     cmp esi,edi                 ; jump if greater than argc
-    jge endloop
+    jge L_while1_end
     pushad
 
     ; get length of string
@@ -66,60 +123,71 @@ startloop:
     ; print string (eax = strlen, *ecx = string)
     push eax                    ; strlen
     push dword [ecx]            ; str
-    call print
+    call print_err
     clean_stack(2)
+    call print_newline_err
 
     popad
     add ecx, 4                  ; move to next string
     add esi, 1                  ; increment index
-if:
-    cmp esi, edi                ; if index < argc print space
-    jge end_if
-then:
-    pushad
-    call print_space
-    popad
-end_if:
-    jmp startloop
-endloop:
-    cmp edi, 1                  ; if argc > 1 print newline
-    jle no_newline
-    pushad
-    call print_newline
-    popad
-no_newline:
+    jmp L_while1
+    L_while1_end:
     mov esp, ebp
     pop ebp
     ret
 
-print:
+print_err:
     push ebp
     mov ebp, esp
     push arg(1)
     push arg(0)
-    push 1
-    push 4
+    push stderr
+    push sys_write
     call system_call
     mov esp, ebp
     pop ebp
     ret
 
-print_space:
+print_to_fileout:
     push ebp
     mov ebp, esp
-    push 1
-    push space
-    call print
+    push arg(1)
+    push arg(0)
+    push fileout
+    push sys_write
+    call system_call
     mov esp, ebp
     pop ebp
     ret
 
-print_newline:
+print_newline_err:
+    push ebp
+    mov ebp, esp
+    push 1
+    push newline
+    call print_err
+    mov esp, ebp
+    pop ebp
+    ret
+
+print_newline_to_fileout:
     push ebp
     mov ebp, esp
     push 1
     push newline
     call print
+    mov esp, ebp
+    pop ebp
+    ret
+
+readline:
+    push ebp
+    mov ebp, esp
+    push arg(1)
+    push arg(0)
+    push filein
+    push sys_read
+    call system_call
     mov esp, ebp
     pop ebp
     ret
