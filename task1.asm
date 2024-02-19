@@ -122,6 +122,11 @@ encode:
     push edi                    ; str
     call print_to_fileout
     clean_stack(2)
+    ; if filein is not stdin, then print newline
+    cmp dword [filein], stdin
+    je L_encode_end
+    call print_newline_to_fileout
+    L_encode_end:
     mov esp, ebp
     pop ebp
     ret
@@ -294,8 +299,8 @@ open_outfile:
 open_infile:
     push ebp
     mov ebp, esp
-    push O_RDONLY
     push 0
+    push O_RDONLY
     push arg(0)
     push sys_open
     call system_call
