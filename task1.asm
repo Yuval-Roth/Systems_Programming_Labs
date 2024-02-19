@@ -77,11 +77,14 @@ encode:
     stmalloc(4)         ; input size
     stmalloc(256 + 1)   ; buffer allocation + null char
 
+    L_encode_while:
     ; call readline
     mov esi, esp        ; esi = buffer
     push 256            ; buffer size
     push esi
     call readline
+    cmp esi,0
+    je L_encode_end
     ; store length of input
     lea esi, [ebp-4]
     mov dword [esi], eax
@@ -99,11 +102,11 @@ encode:
     je L_while2_end
     cmp byte [edi], "A"
     jl L_while2_next
-    cmp byte [edi], "Z"
+    cmp byte [edi], "z"
     jg L_while2_next
 
     ; if Z
-    cmp byte [edi], "Z"
+    cmp byte [edi], "z"
     jne L_while2_not_Z
     ; then A
     mov byte [edi], "A"
@@ -124,8 +127,10 @@ encode:
     clean_stack(2)
     ; if filein is not stdin, then print newline
     cmp dword [filein], stdin
-    je L_encode_end
+    je L_encode_no_newline
     call print_newline_to_fileout
+    L_encode_no_newline:
+    jmp L_encode_while
     L_encode_end:
     mov esp, ebp
     pop ebp
