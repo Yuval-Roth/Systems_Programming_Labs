@@ -83,7 +83,7 @@ encode:
     push 256            ; buffer size
     push esi
     call readline
-    cmp esi,0
+    cmp eax,0
     je L_encode_end
     ; store length of input
     lea esi, [ebp-4]
