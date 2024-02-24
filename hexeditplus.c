@@ -74,7 +74,7 @@ void load_into_memory(state *s){
     }
 
     if ((file = fopen(s->file_name, "r")) == NULL){
-        perror("");
+        perror("fopen");
         return;
     }
 
@@ -87,6 +87,9 @@ void load_into_memory(state *s){
     if (s->debug_mode){
         fprintf(stderr,"Debug: file name = %s, location = 0x%x, length = %d\n",s->file_name,location,length);
     }
+
+    fseek(file, 0, SEEK_END);
+    s->mem_count = ftell(file);
 
     fseek(file, location, SEEK_SET);
     fread(s->mem_buf,sizeof(char),length,file);
@@ -104,6 +107,11 @@ void toggle_display_mode(state *s){
 }
 void memory_display(state *s){
     unsigned int addr, length;
+
+    if (strcmp(s->file_name, "" ) == 0){
+        fprintf(stderr, "Error, file name is empty\n");
+        return;
+    }
 
     printf("Enter address and length\n");
     char* line = (char*)malloc(128);
@@ -131,6 +139,11 @@ void save_into_file(state *s){
     FILE *file;
     int source_addr, target_loc, length;
 
+    if (strcmp(s->file_name, "" ) == 0){
+        fprintf(stderr, "Error, file name is empty\n");
+        return;
+    }
+
     printf("Please enter <source-address> <target-location> <length>\n");
     char* line = (char*)malloc(512);
     fgets (line, 512, stdin);
@@ -138,20 +151,40 @@ void save_into_file(state *s){
     free(line);
 
     file = fopen(s->file_name, "r+");
-    fseek(file, 0, SEEK_END);
-    if (target_loc >= ftell(file)) {
+
+    // check that we are not trying to write beyond the file
+    if (target_loc >= s->mem_count){
         fprintf(stderr, "Error: Target location exceeds the size of the file.\n");
         fclose(file);
         return;
     }
-
 
     fseek(file, target_loc * s->unit_size, SEEK_SET);
     fwrite(&s->mem_buf[source_addr], s->unit_size, length, file);
     fclose(file);
 }
 void memory_modify(state *s){
-    not_implemented();
+    int location,val;
+    char* line = (char*)malloc(512);
+
+    if (strcmp(s->file_name, "" ) == 0){
+        fprintf(stderr, "Error, file name is empty\n");
+        return;
+    }
+
+    printf("Please enter <location> <val>\n");
+
+    fgets (line, 512, stdin);
+    sscanf(line,"%x %x", &location, &val);
+    free(line);
+    if(location < 0 || location * s->unit_size >= s->mem_count){
+        fprintf(stderr, "Error: location is out of bounds\n");
+        return;
+    }
+    memcpy(&s->mem_buf[location * s->unit_size], &val, s->unit_size);
+    if(s->debug_mode){
+        printf("Debug: location = %x, val = %x\n", location,val);
+    }
 }
 void quit(state *s){
     if (s->debug_mode) {
@@ -185,6 +218,7 @@ void print_menu(){
 
 state getNewState() {
     state state;
+    strcpy(state.file_name,"");
     state.mem_count = 0;
     state.debug_mode = 0;
     state.unit_size = 1;
