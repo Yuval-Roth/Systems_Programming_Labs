@@ -8,11 +8,7 @@ typedef struct state{
     int unit_size;
     unsigned char mem_buf[10000];
     size_t mem_count;
-    /*
-     .
-     .
-     Any additional fields you deem necessary
-    */
+    int display_mode; // 0 for decimal, 1 for hex
 } state;
 
 typedef struct menuEntry{
@@ -20,13 +16,11 @@ typedef struct menuEntry{
     void (*run)(state *s);
 } menuEntry;
 
+static char* hex_formats[] = {"%#hhx\n", "%#hx\n", "No such unit", "%#x\n"};
+static char* dec_formats[] = {"%#hhd\n", "%#hd\n", "No such unit", "%#d\n"};
+
 void not_implemented(){
     printf("Not implemented yet\n");
-}
-
-void clear_stdin() {
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF);
 }
 
 void toggle_debug_mode(state *s){
@@ -41,18 +35,22 @@ void toggle_debug_mode(state *s){
     }
 }
 void set_file_name(state *s){
+    char* line = (char*)malloc(128);
     printf("Enter file name: ");
-    scanf("%127s", s->file_name);
-    clear_stdin();
+    fgets(line, 101, stdin);
+    sscanf(line,"%s\n", s->file_name);
+    free(line);
     if (s->debug_mode == 1){
         fprintf(stderr, "Debug: file name set to '%s'\n", s->file_name);
     }
 }
 void set_unit_size(state *s){
     int size;
+    char* line = (char*)malloc(128);
     printf("Enter unit size: ");
-    scanf("%d",&size);
-    clear_stdin();
+    fgets(line, 128, stdin);
+    sscanf(line,"%d\n", &size);
+    free(line);
 
     if (size == 1 || size == 2 || size == 4){
         s->unit_size = size;
@@ -64,22 +62,93 @@ void set_unit_size(state *s){
     else{
         fprintf(stderr, "Error: invalid unit size\n");
     }
-
-    if (s->debug_mode == 1){
-        fprintf(stderr, "Debug: file name set to '%s'\n", s->file_name);
-    }
 }
 void load_into_memory(state *s){
-    not_implemented();
+    char *line;
+    int location, length;
+    FILE* file;
+
+    if (strcmp(s->file_name, "" ) == 0){
+        fprintf(stderr, "Error, file name is empty\n");
+        return;
+    }
+
+    if ((file = fopen(s->file_name, "r")) == NULL){
+        perror("");
+        return;
+    }
+
+    line = malloc(sizeof(char) * 512);
+    printf("Please enter <location> <length>\n");
+    fgets(line, 512, stdin);
+    sscanf(line,"%x %d", &location, &length);
+    free(line);
+
+    if (s->debug_mode){
+        fprintf(stderr,"Debug: file name = %s, location = 0x%x, length = %d\n",s->file_name,location,length);
+    }
+
+    fseek(file, location, SEEK_SET);
+    fread(s->mem_buf,sizeof(char),length,file);
+    fclose(file);
+    printf("Loaded %d units into memory\n",length);
 }
 void toggle_display_mode(state *s){
-    not_implemented();
+    if (s->display_mode == 0){
+        s->display_mode = 1;
+        fprintf(stderr,"Display flag now on, hexadecimal representation\n");
+    } else{
+        s->display_mode = 0;
+        fprintf(stderr,"Display flag now off, decimal representation\n");
+    }
 }
 void memory_display(state *s){
-    not_implemented();
+    unsigned int addr, length;
+
+    printf("Enter address and length\n");
+    char* line = (char*)malloc(128);
+    fgets(line, 128, stdin);
+    sscanf(line,"%x %d\n", &addr, &length);
+    free(line);
+
+    printf(s->display_mode ? "Hexadecimal\n===========\n" : "Decimal\n=======\n");
+
+    for (size_t i = 0; i < length; ++i) {
+        unsigned int val;
+        memcpy(&val, &s->mem_buf[addr + i * s->unit_size], s->unit_size);
+
+        if (s->display_mode) {
+            printf(hex_formats[s->unit_size-1],val);
+        } else {
+            printf(dec_formats[s->unit_size-1], val);
+        }
+    }
+
+    printf("\n");
+
 }
 void save_into_file(state *s){
-    not_implemented();
+    FILE *file;
+    int source_addr, target_loc, length;
+
+    printf("Please enter <source-address> <target-location> <length>\n");
+    char* line = (char*)malloc(512);
+    fgets (line, 512, stdin);
+    sscanf(line,"%x %x %d", &source_addr, &target_loc, &length);
+    free(line);
+
+    file = fopen(s->file_name, "r+");
+    fseek(file, 0, SEEK_END);
+    if (target_loc >= ftell(file)) {
+        fprintf(stderr, "Error: Target location exceeds the size of the file.\n");
+        fclose(file);
+        return;
+    }
+
+
+    fseek(file, target_loc * s->unit_size, SEEK_SET);
+    fwrite(&s->mem_buf[source_addr], s->unit_size, length, file);
+    fclose(file);
 }
 void memory_modify(state *s){
     not_implemented();
@@ -103,7 +172,7 @@ menuEntry menu[] = {
         {"Quit", quit},
         {NULL, NULL} // Terminating entry
 };
-int menu_size = sizeof (menu) / sizeof (menu[0]);
+int menu_size = sizeof (menu) / sizeof (menu[0]) - 1;
 
 void print_menu(){
     int i = 0;
@@ -114,10 +183,19 @@ void print_menu(){
     }
 }
 
+state getNewState() {
+    state state;
+    state.mem_count = 0;
+    state.debug_mode = 0;
+    state.unit_size = 1;
+    state.display_mode = 0;
+    return state;
+}
+
 int main (int argc, char **argv){
     char* line = (char*)malloc(512);
     int choice;
-    state state;
+    state state = getNewState();
 
     while(1){
         print_menu();
