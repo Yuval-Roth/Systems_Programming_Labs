@@ -4,7 +4,6 @@
 #include <string.h>
 #include <elf.h>
 #include <sys/mman.h>
-#include <unistd.h>
 
 int debug_mode;
 int openFileCount;
@@ -138,11 +137,10 @@ void print_section_names() {
 void print_symbols() {
     int i, j, k;
     Elf32_Ehdr *header;
-    Elf32_Shdr *shdrTable;
+    Elf32_Shdr *shdrTable, *sectionHeader;
     Elf32_Sym *symTable, *entry;
     Elf32_Addr value;
-    char sh_index[100];
-    char *strTab, *sh_name, *symbols_names, *s_name;
+    char sh_index[100], *strTab, *sh_name, *symbol_names, *s_name;
 
     for (i = 0; i < openFileCount; i++) {
         if (fileBuffers[i] == NULL) {
@@ -160,7 +158,7 @@ void print_symbols() {
         for (j = 0; j < header->e_shnum; j++) {
             if (shdrTable[j].sh_type == SHT_SYMTAB || shdrTable[j].sh_type == SHT_DYNSYM) {
                 symTable = (Elf32_Sym *)(fileBuffers[i] + shdrTable[j].sh_offset);
-                symbols_names = (char *)(fileBuffers[i] + shdrTable[shdrTable[j].sh_link].sh_offset);
+                symbol_names = (char *)(fileBuffers[i] + shdrTable[shdrTable[j].sh_link].sh_offset);
                 printf("\n[index] value section_index section_name symbol_name\n");
 
                 // Iterate over the symTable in the symbol table
@@ -180,13 +178,11 @@ void print_symbols() {
                     sh_name = entry->st_shndx == SHN_UNDEF || entry->st_shndx == SHN_ABS ?
                               "" : strTab + shdrTable[entry->st_shndx].sh_name;
 
-                    s_name = entry->st_name == 0 ? "" : symbols_names + entry->st_name;
+                    s_name = entry->st_name == 0 ? "" : symbol_names + entry->st_name;
 
                     if (entry->st_info == STT_SECTION) {
-                        int sectionIndex = entry->st_shndx;
-                        Elf32_Shdr *sectionHeader = &shdrTable[sectionIndex];
-                        int sectionNameOffset = sectionHeader->sh_name;
-                        s_name = (char *)(fileBuffers[0] + shdrTable[header->e_shstrndx].sh_offset + sectionNameOffset);
+                        sectionHeader = &shdrTable[entry->st_shndx];
+                        s_name = (char *)(fileBuffers[0] + shdrTable[header->e_shstrndx].sh_offset + sectionHeader->sh_name);
                     }
                     printf("[%02d]  %08x %-3s %-20s %-20s\n", k, value, sh_index,
                            sh_name, s_name);
@@ -202,16 +198,18 @@ void print_symbols() {
 
 
 
-int search_symbol(char *name, Elf32_Sym *symtab, int size, char *symbols_names, Elf32_Shdr *shdr1, Elf32_Ehdr *header1) {
+int search_symbol(char *name, Elf32_Sym *symtab, Elf32_Word size, char *symbols_names, Elf32_Shdr *shdr1, Elf32_Ehdr *header1) {
     int i;
+    Elf32_Shdr *sectionHeader;
+    Elf32_Sym *entry;
+    char *symbolName;
+
     for (i = 0; i < size; i++) {
-        Elf32_Sym *entry = &symtab[i];
-        char *symbolName = symbols_names + entry->st_name;
+        entry = &symtab[i];
+        symbolName = symbols_names + entry->st_name;
         if (entry->st_info == STT_SECTION) {
-            int sectionIndex = entry->st_shndx;
-            Elf32_Shdr *sectionHeader = &shdr1[sectionIndex];
-            int sectionNameOffset = sectionHeader->sh_name;
-            symbolName = (char *)(fileBuffers[0] + shdr1[header1->e_shstrndx].sh_offset + sectionNameOffset);
+            sectionHeader = &shdr1[entry->st_shndx];
+            symbolName = (char *)(fileBuffers[0] + shdr1[header1->e_shstrndx].sh_offset + sectionHeader->sh_name);
         }
         if (strcmp(name, symbolName) == 0) {
             if (symtab[i].st_shndx != SHN_UNDEF) {
@@ -223,8 +221,6 @@ int search_symbol(char *name, Elf32_Sym *symtab, int size, char *symbols_names, 
     }
     return 0;
 }
-
-
 
 void check_files_for_merge() {
     if (openFileCount != 2) {
