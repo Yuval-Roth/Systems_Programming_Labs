@@ -1,6 +1,7 @@
 TARGETS = myELF
-
 GCC_FLAGS = gcc -m32 -Wall -g
+
+
 
 all: clean $(TARGETS)
 	rm -f *.o

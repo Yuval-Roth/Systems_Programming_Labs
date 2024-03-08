@@ -138,13 +138,11 @@ void print_section_names() {
 void print_symbols() {
     int i, j, k;
     Elf32_Ehdr *header;
-    Elf32_Shdr *shdrTable, *symtab_shdr;
+    Elf32_Shdr *shdrTable;
     Elf32_Sym *symbols, *entry;
-    char *strTab, *sh_name;
     Elf32_Addr value;
     char sh_index[100];
-    char *s_name;
-    char *symbols_names;
+    char *strTab, *sh_name, *symbols_names, *s_name;
 
     for (i = 0; i < openFileCount; i++) {
         if (fileBuffers[i] == NULL) {
@@ -152,55 +150,146 @@ void print_symbols() {
             continue;
         }
 
-        header = (Elf32_Ehdr*)fileBuffers[i];
+        header = (Elf32_Ehdr *)fileBuffers[i];
         shdrTable = (Elf32_Shdr*)(fileBuffers[i] + header->e_shoff);
         strTab = fileBuffers[i] + shdrTable[header->e_shstrndx].sh_offset;
 
-        // find symbol table
+        printf("File %d: %s\n", i + 1, strTab);
+
+        // Iterate over the sections to find symbol tables
         for (j = 0; j < header->e_shnum; j++) {
-            if (shdrTable[j].sh_type == SHT_SYMTAB) {
-                symtab_shdr = shdrTable + j;
-                break;
+            if (shdrTable[j].sh_type == SHT_SYMTAB || shdrTable[j].sh_type == SHT_DYNSYM) {
+                symbols = (Elf32_Sym *)(fileBuffers[i] + shdrTable[j].sh_offset);
+                symbols_names = (char *)(fileBuffers[i] + shdrTable[shdrTable[j].sh_link].sh_offset);
+                printf("\n[index] value section_index section_name symbol_name\n");
+
+                // Iterate over the symbols in the symbol table
+                // Iterate over the symbols in the symbol table
+                for (k = 0; k < shdrTable[j].sh_size / sizeof(Elf32_Sym); k++) {
+                    entry = &symbols[k];
+
+                    value = entry->st_value;
+                    if(entry->st_shndx == SHN_UNDEF) {
+                        strcpy(sh_index, "UND");
+                    } else if(entry->st_shndx == SHN_ABS) {
+                        strcpy(sh_index, "ABS");
+                    } else {
+                        sprintf(sh_index, "%d" ,entry->st_shndx);
+                    }
+
+                    sh_name = entry->st_shndx == SHN_UNDEF || entry->st_shndx == SHN_ABS ?
+                              "" : strTab + shdrTable[entry->st_shndx].sh_name;
+
+                    s_name = entry->st_name == 0 ? "" : symbols_names + entry->st_name;
+
+                    printf("[%02d]  %08x %-3s %-20s %-20s\n", k, value, sh_index,
+                           sh_name, s_name);
+                }
+
+                printf("\n");  // Print an extra line after each symbol table
             }
         }
-
-        if (j == header->e_shnum) {
-            printf("No symbol table found\n");
-            continue;
-        }
-
-        symbols = (Elf32_Sym*)(fileBuffers[i] + symtab_shdr->sh_offset);
-        symbols_names = (char *) (strTab + shdrTable[shdrTable[i].sh_link].sh_offset);
-
-        printf("File %d:\n", i+1);
-
-        for (k = 0; k < symtab_shdr->sh_size / symtab_shdr->sh_entsize; k++) {
-
-            entry = &symbols[k];
-
-            value = entry->st_value;
-            if(entry->st_shndx == SHN_UNDEF) {
-                strcpy(sh_index, "UND");
-            } else if(entry->st_shndx == SHN_ABS) {
-                strcpy(sh_index, "ABS");
-            } else {
-                sprintf(sh_index, "%d" ,entry->st_shndx);
-            }
-
-            sh_name = entry->st_shndx == SHN_UNDEF || entry->st_shndx == SHN_ABS ?
-                      "" : strTab + shdrTable[entry->st_shndx].sh_name;
-            s_name = symbols_names + symbols[k].st_name;
-            printf("[%02d]  %08x %-3s %-20s %-20s\n", k, value, sh_index,
-                   sh_name, s_name);
-        }
-        printf("\n");
     }
 }
 
 
-void check_files_for_merge(){
-    not_implemented();
+
+
+
+int search_symbol(char *name, Elf32_Sym *symtab, int size, char *symbols_names) {
+    int i;
+    for (i = 0; i < size; i++) {
+        Elf32_Sym *entry = &symtab[i];
+        char *symbolName = symbols_names + entry->st_name;
+        if (strcmp(name, symbolName) == 0) {
+            if (symtab[i].st_shndx != SHN_UNDEF) {
+                return 1;
+            }
+
+        }
+
+    }
+    return 0;
 }
+
+
+
+void check_files_for_merge() {
+    if (openFileCount != 2) {
+        printf("Need to open 2 files first\n");
+        return;
+    }
+
+    Elf32_Ehdr *header1, *header2;
+    Elf32_Shdr *shdr1, *shdr2;
+    int i;
+
+    header1 = (Elf32_Ehdr *)fileBuffers[0];
+    header2 = (Elf32_Ehdr *)fileBuffers[1];
+
+    shdr1 = (Elf32_Shdr *)(fileBuffers[0] + header1->e_shoff);
+    shdr2 = (Elf32_Shdr *)(fileBuffers[1] + header2->e_shoff);
+
+    int count1 = 0, count2 = 0;
+    int symtab1_index = -1, symtab2_index = -1;
+
+    for (i = 0; i < header1->e_shnum; i++) {
+        if (shdr1[i].sh_type == SHT_SYMTAB || shdr1[i].sh_type == SHT_DYNSYM) {
+            count1++;
+            symtab1_index = i;
+        }
+    }
+
+    for (i = 0; i < header2->e_shnum; i++) {
+        if (shdr2[i].sh_type == SHT_SYMTAB || shdr2[i].sh_type == SHT_DYNSYM) {
+            count2++;
+            symtab2_index = i;
+        }
+    }
+
+    if (count1 != 1 || count2 != 1) {
+        printf("feature not supported\n");
+        return;
+    }
+
+    //synboltable1
+    Elf32_Sym *symtab1 = (Elf32_Sym *)(fileBuffers[0] + shdr1[symtab1_index].sh_offset);
+    Elf32_Sym *symtab2 = (Elf32_Sym *)(fileBuffers[1] + shdr2[symtab2_index].sh_offset);
+    Elf32_Sym *entry;
+    char *symbols_names1 = (char *)(fileBuffers[0] + shdr1[shdr1[symtab1_index].sh_link].sh_offset);
+    char *symbols_names2 = (char *)(fileBuffers[1] + shdr2[shdr2[symtab2_index].sh_link].sh_offset);
+    // iterate over all symbols in the symbol table except the first one
+    for (i = 1; i < shdr1[symtab1_index].sh_size / sizeof(Elf32_Sym); i++) {
+        if (symtab1[i].st_shndx == SHN_UNDEF) {
+            entry = &symtab1[i];
+            // get symbol name
+            char *symbolName = symbols_names1 + entry->st_name;
+            if (search_symbol(symbolName, symtab2, shdr2[symtab2_index].sh_size / sizeof(Elf32_Sym), symbols_names2) == 0) {
+                printf("Symbol %s not defined\n", symbolName);
+            }
+        }
+        // else if the symbol is defined , search for it in the second table , and if defined, prinf  Symbol sym multiply defined
+        else {
+            entry = &symtab1[i];
+            char *symbolName = symbols_names1 + entry->st_name;
+            if (entry->st_info == STT_SECTION) {
+                //get the section name
+                char *sectionName = (char *)(fileBuffers[0] + shdr1[entry->st_shndx].sh_name);
+            }
+
+
+
+
+            if (search_symbol(symbolName, symtab2, shdr2[symtab2_index].sh_size / sizeof(Elf32_Sym), symbols_names2) == 1) {
+                printf("Symbol sym multiply defined");
+            }
+        }
+
+    }
+}
+
+
+
 
 void merge_elf_files(){
     not_implemented();
