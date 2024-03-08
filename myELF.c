@@ -182,6 +182,12 @@ void print_symbols() {
 
                     s_name = entry->st_name == 0 ? "" : symbols_names + entry->st_name;
 
+                    if (entry->st_info == STT_SECTION) {
+                        int sectionIndex = entry->st_shndx;
+                        Elf32_Shdr *sectionHeader = &shdrTable[sectionIndex];
+                        int sectionNameOffset = sectionHeader->sh_name;
+                        s_name = (char *)(fileBuffers[0] + shdrTable[header->e_shstrndx].sh_offset + sectionNameOffset);
+                    }
                     printf("[%02d]  %08x %-3s %-20s %-20s\n", k, value, sh_index,
                            sh_name, s_name);
                 }
