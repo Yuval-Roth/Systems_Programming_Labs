@@ -232,19 +232,17 @@ void check_files_for_merge() {
         return;
     }
 
-
     Elf32_Ehdr *header1, *header2;
     Elf32_Shdr *shdrTable1, *shdrTable2, *shdr;
-    int i;
+    Elf32_Sym *symtab1, *symtab2, *entry;
+    int i, sectionIndex, count1 = 0, count2 = 0, symtab1_index = -1, symtab2_index = -1;
+    char *symbols_names1 , *symbols_names2, *symbolName;
 
     header1 = (Elf32_Ehdr *)fileBuffers[0];
     header2 = (Elf32_Ehdr *)fileBuffers[1];
 
     shdrTable1 = (Elf32_Shdr *)(fileBuffers[0] + header1->e_shoff);
     shdrTable2 = (Elf32_Shdr *)(fileBuffers[1] + header2->e_shoff);
-
-    int count1 = 0, count2 = 0;
-    int symtab1_index = -1, symtab2_index = -1;
 
     for (i = 0; i < header1->e_shnum; i++) {
         if (shdrTable1[i].sh_type == SHT_SYMTAB || shdrTable1[i].sh_type == SHT_DYNSYM) {
@@ -266,21 +264,20 @@ void check_files_for_merge() {
     }
 
     //synboltable1
-    Elf32_Sym *symtab1 = (Elf32_Sym *)(fileBuffers[0] + shdrTable1[symtab1_index].sh_offset);
-    Elf32_Sym *symtab2 = (Elf32_Sym *)(fileBuffers[1] + shdrTable2[symtab2_index].sh_offset);
-    Elf32_Sym *entry;
-    char *symbols_names1 = (char *)(fileBuffers[0] + shdrTable1[shdrTable1[symtab1_index].sh_link].sh_offset);
-    char *symbols_names2 = (char *)(fileBuffers[1] + shdrTable2[shdrTable2[symtab2_index].sh_link].sh_offset);
-
+    symtab1 = (Elf32_Sym *) (fileBuffers[0] + shdrTable1[symtab1_index].sh_offset);
+    symtab2 = (Elf32_Sym *) (fileBuffers[1] + shdrTable2[symtab2_index].sh_offset);
+    symbols_names1 = (char *) (fileBuffers[0] + shdrTable1[shdrTable1[symtab1_index].sh_link].sh_offset);
+    symbols_names2 = (char *) (fileBuffers[1] + shdrTable2[shdrTable2[symtab2_index].sh_link].sh_offset);
 
     for (i = 1; i < shdrTable1[symtab1_index].sh_size / sizeof(Elf32_Sym); i++) {
 
         entry = &symtab1[i];
-        char *symbolName = symbols_names1 + entry->st_name;
         if (entry->st_info == STT_SECTION) {
-            int sectionIndex = entry->st_shndx;
+            sectionIndex = entry->st_shndx;
             shdr = &shdrTable1[sectionIndex];
             symbolName = (char *)(fileBuffers[0] + shdrTable1[header1->e_shstrndx].sh_offset + shdr->sh_name);
+        } else {
+            symbolName = symbols_names1 + entry->st_name;
         }
 
         if (symtab1[i].st_shndx == SHN_UNDEF && search_symbol(symbolName, symtab2, shdrTable2[symtab2_index].sh_size / sizeof(Elf32_Sym), symbols_names2, shdrTable2, header2) == 0) {
