@@ -28,8 +28,8 @@ void printPhder(Elf32_Phdr *phdr, int arg){
             phdr->p_align);
 
         // Print protection flags
-        printf(" %s%s%s ",
-               (phdr->p_flags & PF_R) ? "--- PROT_READ" : "",
+        printf(" --- %s%s%s ",
+               (phdr->p_flags & PF_R) ? "PROT_READ" : "",
                (phdr->p_flags & PF_W) ? " | PROT_WRITE" : "",
                (phdr->p_flags & PF_X) ? " | PROT_EXEC" : "");
 
@@ -44,6 +44,35 @@ void printReadElfL(void* memory_start, int arg){
     printf("Type       Offset   VirtAddr   PhysAddr   FileSiz  MemSiz   Flg Align\n");
     foreach_phdr(memory_start, &printPhder, arg);
 }
+
+/**
+    Implement the following function:
+    void load_phdr(Elf32_Phdr *phdr, int fd);
+    This function takes two arguments, a pointer to the Phdr struct and
+    the file descriptor of the executable file.
+    It should map each Phdr that has the PT_LOAD flag set, into memory,
+    starting from the specified offset, and place it at the virtual address stated in the Phdr.
+    Each map should be according to the flags set in the Phdr struct.
+    In addition, this function should print to the screen the information about
+    each program header it maps (you can use the function from Task 1 to print the information).
+
+    Recommended operating procedure: make sure system calls succeed before proceeding, most especially mmap.
+ */
+void load_phdr(Elf32_Phdr *phdr, int fd){
+    if(phdr->p_type != PT_LOAD){
+        return;
+    }
+    int protFlags = (phdr->p_flags & PF_R) | (phdr->p_flags & PF_W) | (phdr->p_flags & PF_X);
+    int mapFlags = MAP_PRIVATE | MAP_FIXED;
+
+    void* map_start = mmap((void*)phdr->p_vaddr, phdr->p_memsz,protFlags, mapFlags , fd, phdr->p_offset);
+    if(map_start == MAP_FAILED){
+        perror("mmap");
+        return;
+    }
+    printPhder(phdr, 0);
+}
+
 
 int main(int argc, char** argv){
     void* map_start;
@@ -77,6 +106,7 @@ int main(int argc, char** argv){
 
     // iterate over program headers
     printReadElfL(map_start, 0);
+    foreach_phdr(map_start,&load_phdr,fileno(fd));
     return 0;
 }
 
