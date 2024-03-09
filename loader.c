@@ -3,6 +3,9 @@
 #include <elf.h>
 #include <sys/mman.h>
 
+#include <unistd.h>
+#include <fcntl.h>
+
 int foreach_phdr(void *map_start, void (*func)(Elf32_Phdr *,int), int arg){
     Elf32_Ehdr *header = (Elf32_Ehdr *)map_start;
     Elf32_Phdr *phdr = (Elf32_Phdr *)(map_start + header->e_phoff);
@@ -59,20 +62,30 @@ void printReadElfL(void* memory_start, int arg){
     Recommended operating procedure: make sure system calls succeed before proceeding, most especially mmap.
  */
 void load_phdr(Elf32_Phdr *phdr, int fd){
+    off_t aligned_offset, offset_padding;
+    void *map_start;
+
     if(phdr->p_type != PT_LOAD){
         return;
     }
-    int protFlags = (phdr->p_flags & PF_R) | (phdr->p_flags & PF_W) | (phdr->p_flags & PF_X);
-    int mapFlags = MAP_PRIVATE | MAP_FIXED;
 
-    void* map_start = mmap((void*)phdr->p_vaddr, phdr->p_memsz,protFlags, mapFlags , fd, phdr->p_offset);
+    // Ensure alignment to the system's page size
+    aligned_offset = phdr->p_offset & ~(sysconf(_SC_PAGE_SIZE) - 1);
+    offset_padding = phdr->p_offset - aligned_offset;
+
+    map_start = mmap((void *) (phdr->p_vaddr - offset_padding),
+                     phdr->p_memsz + offset_padding,
+                     phdr->p_flags,
+                     MAP_PRIVATE | MAP_FIXED,
+                     fd,
+                     aligned_offset);
+
     if(map_start == MAP_FAILED){
         perror("mmap");
         return;
     }
     printPhder(phdr, 0);
 }
-
 
 int main(int argc, char** argv){
     void* map_start;
@@ -105,7 +118,7 @@ int main(int argc, char** argv){
     }
 
     // iterate over program headers
-    printReadElfL(map_start, 0);
+//    printReadElfL(map_start, 0);
     foreach_phdr(map_start,&load_phdr,fileno(fd));
     return 0;
 }
